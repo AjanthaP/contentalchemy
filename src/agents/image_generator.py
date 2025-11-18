@@ -1,7 +1,7 @@
 from typing import Dict, Optional
 from langchain_openai import ChatOpenAI
 from openai import OpenAI
-from langchain.prompts import ChatPromptTemplate
+from langchain_core.prompts import ChatPromptTemplate
 import os
 
 class ImageGeneratorAgent:

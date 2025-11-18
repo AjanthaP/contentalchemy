@@ -42,8 +42,17 @@ class Settings(BaseSettings):
     enable_conversation_memory: bool = True
     max_conversation_history: int = 10
     
+    # Redis (Optional)
+    redis_host: str = "localhost"
+    redis_port: int = 6379
+    
+    # Extra Settings
+    openai_temperature: float = 0.7
+    app_version: str = "1.0.0"
+    
     class Config:
         env_file = ".env"
         case_sensitive = False
+        extra = "allow"  # Allow extra fields from .env
 
 settings = Settings()

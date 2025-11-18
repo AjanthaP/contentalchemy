@@ -1,6 +1,6 @@
-from typing import Dict, List
+from typing import Dict, Any, List
 from langchain_openai import ChatOpenAI
-from langchain.prompts import ChatPromptTemplate
+from langchain_core.prompts import ChatPromptTemplate
 from pydantic import BaseModel, Field
 import requests
 import os

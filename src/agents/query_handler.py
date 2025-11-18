@@ -1,6 +1,6 @@
 from typing import Dict, Any, Literal
 from langchain_openai import ChatOpenAI
-from langchain.prompts import ChatPromptTemplate
+from langchain_core.prompts import ChatPromptTemplate
 from pydantic import BaseModel, Field
 import json
 
@@ -103,9 +103,17 @@ class QueryHandlerAgent:
             requires_research=intent != "image"
         )
     
-    def __call__(self, state: Dict) -> Dict:
-        """LangGraph node function"""
-        analysis = self.analyze(state["user_query"])
+    def __call__(self, state) -> Dict:
+        """LangGraph node function or direct string input"""
+        # Support both dict (from LangGraph) and string (direct call)
+        if isinstance(state, str):
+            query = state
+        elif isinstance(state, dict):
+            query = state.get("user_query", state.get("query", ""))
+        else:
+            query = str(state)
+        
+        analysis = self.analyze(query)
         return {
             "query_analysis": analysis.model_dump(),
             "intent": analysis.intent,
