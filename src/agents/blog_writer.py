@@ -70,7 +70,7 @@ class SEOBlogWriterAgent:
     
     def write_blog(self, topic: str, keywords: List[str], 
                    research_summary: str, key_findings: List[str],
-                   audience: str = "general", tone: str = "professional") -> str:
+                   audience: str = "general", tone: str = "professional", target_words: int = 1200) -> str:
         """Generate SEO blog post"""
         try:
             chain = self.prompt | self.llm
@@ -79,6 +79,7 @@ class SEOBlogWriterAgent:
                 "keywords": ", ".join(keywords),
                 "audience": audience,
                 "tone": tone,
+                "target_words": target_words,
                 "research_summary": research_summary,
                 "key_findings": "\n- ".join(key_findings)
             })
@@ -87,7 +88,7 @@ class SEOBlogWriterAgent:
             
             # Ensure minimum word count
             word_count = len(blog_content.split())
-            if word_count < 1000:
+            if word_count < target_words:
                 blog_content = self._expand_content(blog_content, topic, keywords)
             
             return blog_content
@@ -172,13 +173,18 @@ Ready to get started? Begin by implementing one strategy from this guide today.
     
     def __call__(self, state: Dict) -> Dict:
         """LangGraph node function"""
+        # Fallback to UI selection if not in query_analysis
+        audience = state.get("query_analysis", {}).get("target_audience") or state.get("user_profile", {}).get("target_audience") or "general"
+        tone = state.get("query_analysis", {}).get("tone") or state.get("tone", "professional")
+        target_words = state.get("query_analysis", {}).get("target_words") or state.get("target_words", 1200)
         blog_content = self.write_blog(
             topic=state["topic"],
             keywords=state["keywords"],
             research_summary=state.get("research_summary", ""),
             key_findings=state.get("key_findings", []),
-            audience=state.get("query_analysis", {}).get("target_audience", "general"),
-            tone=state.get("query_analysis", {}).get("tone", "professional")
+            audience=audience,
+            tone=tone,
+            target_words=target_words
         )
         
         return {

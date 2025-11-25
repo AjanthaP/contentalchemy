@@ -2,6 +2,7 @@ from typing import TypedDict, Annotated, Literal
 from langgraph.graph import StateGraph, END
 from langchain_openai import ChatOpenAI
 import operator
+import os
 
 from src.agents.query_handler import QueryHandlerAgent
 from src.agents.research_agent import DeepResearchAgent
@@ -10,6 +11,8 @@ from src.agents.linkedin_writer import LinkedInPostAgent
 from src.agents.image_generator import ImageGeneratorAgent
 from src.agents.content_strategist import ContentStrategistAgent
 from src.core.config import settings
+
+#from langsmith import Client
 
 class ContentState(TypedDict):
     """State for content generation workflow"""
@@ -66,24 +69,19 @@ def create_content_workflow():
     # Router function
     def route_content(state: ContentState) -> str:
         """Route to appropriate content generation agent"""
-        intent = state.get("intent", "research")
-        requires_research = state.get("requires_research", False)
-        
-        # If research needed and not done yet, do research first
-        if requires_research and not state.get("research_summary"):
-            return "research"
-        
-        # Route based on intent
-        if intent == "blog":
-            return "blog"
-        elif intent == "linkedin":
-            return "linkedin"
-        elif intent == "image":
-            return "image"
-        elif intent == "strategy":
-            return "strategy"
-        else:
-            return "research"
+        requested_type = state.get("requested_content_type")
+        # Fallback to UI selection if keyword search or query analysis fails
+        if requested_type:
+            return requested_type
+
+        # Fallback: check user input for keywords
+        user_query = state.get("user_query", "").lower()
+        for keyword in ["research", "blog", "linkedin", "image", "strategy"]:
+            if keyword in user_query:
+                return keyword
+
+        # Fallback to UI selection (API input)
+        return state.get("requested_content_type", "research")
     
     # Create workflow
     workflow = StateGraph(ContentState)
@@ -132,14 +130,22 @@ def create_content_workflow():
     
     return workflow.compile()
 
-def generate_content(user_query: str, **kwargs) -> dict:
+def generate_content(query: str, content_type: str, user_profile: dict = None, session_id: str = None):
     """Generate content from user query"""
     workflow = create_content_workflow()
     
+    # Fallbacks for tone and target_words
+    fallback_tone = os.getenv("DEFAULT_TONE", "professional")
+    fallback_target_words = int(os.getenv("DEFAULT_TARGET_WORDS", "1200"))
+
     initial_state = {
-        "user_query": user_query,
+        "user_query": query,
         "messages": [],
-        **kwargs
+        "requested_content_type": content_type,
+        "user_profile": user_profile,
+        "session_id": session_id,
+        "tone": fallback_tone,
+        "target_words": fallback_target_words
     }
     
     try:
@@ -153,6 +159,8 @@ def generate_content(user_query: str, **kwargs) -> dict:
             final_content = result.get("linkedin_content", "")
         elif content_type == "image":
             final_content = result.get("image_url", "")
+        elif content_type == "research":
+            final_content = result.get("research_summary", "")
         else:
             final_content = result.get("formatted_content", "")
         

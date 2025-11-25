@@ -110,11 +110,14 @@ Drop your thoughts in the comments! 💬
     
     def __call__(self, state: Dict) -> Dict:
         """LangGraph node function"""
+        # Fallback to UI selection if not in query_analysis
+        audience = state.get("query_analysis", {}).get("target_audience") or state.get("user_profile", {}).get("target_audience") or "professionals"
+        tone = state.get("query_analysis", {}).get("tone") or state.get("tone", "professional")
         post_content = self.write_post(
             topic=state["topic"],
             key_points=state.get("key_findings", [])[:5],
-            audience=state.get("query_analysis", {}).get("target_audience", "professionals"),
-            tone=state.get("query_analysis", {}).get("tone", "professional")
+            audience=audience,
+            tone=tone
         )
         
         return {

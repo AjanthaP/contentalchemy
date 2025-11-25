@@ -347,7 +347,7 @@ if 'last_result' in st.session_state:
             # SEO Analysis
             if enable_seo and content_type == "blog":
                 st.subheader("SEO Analysis")
-                llm = ChatOpenAI(model=settings.openai_model, api_key=settings.openai_api_key)
+                llm = ChatOpenAI(model=settings.openai_model)
                 seo_optimizer = SEOOptimizer(llm)
                 
                 keywords_list = keywords.split(",") if keywords else ["content", "marketing"]

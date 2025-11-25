@@ -174,14 +174,22 @@ class DeepResearchAgent:
     
     def __call__(self, state: Dict) -> Dict:
         """LangGraph node function"""
+        # Fallback to UI selection if not in query_analysis
+        topic = state.get("topic") or state.get("user_profile", {}).get("topic") or "General Research"
+        keywords = state.get("keywords") or state.get("user_profile", {}).get("keywords") or []
+        tone = state.get("query_analysis", {}).get("tone") or state.get("tone", "professional")
+        target_words = state.get("query_analysis", {}).get("target_words") or state.get("target_words", 1200)
+        num_results = state.get("max_results", 10)
         report = self.research(
-            topic=state["topic"],
-            keywords=state["keywords"],
-            num_results=state.get("max_results", 10)
+            topic=topic,
+            keywords=keywords,
+            num_results=num_results
         )
         
         return {
             "research_report": report.model_dump(),
             "research_summary": report.summary,
-            "key_findings": report.key_findings
+            "key_findings": report.key_findings,
+            "tone": tone,
+            "target_words": target_words
         }

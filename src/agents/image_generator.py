@@ -72,10 +72,17 @@ class ImageGeneratorAgent:
                 quality=quality,
                 n=1
             )
+
+            image_data = response.data[0]
+            image_url = getattr(image_data, "url", None)
+            if not image_url:
+                b64_json = getattr(image_data, "b64_json", "")
+                if b64_json:
+                    image_url = f"data:image/png;base64,{b64_json}"
             
             return {
-                "url": response.data[0].url,
-                "revised_prompt": response.data[0].revised_prompt,
+                "url": image_url or "",
+                "revised_prompt": getattr(image_data, "revised_prompt", prompt),
                 "status": "success"
             }
             

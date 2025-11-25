@@ -10,9 +10,9 @@ class ContentType(str, Enum):
 
 class Settings(BaseSettings):
     # API Configuration
-    openai_api_key: str
+    #openai_api_key: str
     openai_model: str = "gpt-4-turbo-preview"
-    serp_api_key: str = ""
+    # serp_api_key: str = ""
     
     # Optional API Keys
     perplexity_api_key: Optional[str] = None
@@ -22,6 +22,7 @@ class Settings(BaseSettings):
     app_name: str = "ContentAlchemy"
     debug: bool = False
     log_level: str = "INFO"
+    allowed_origins: List[str] = ["*"]
     
     # LLM Settings
     max_tokens: int = 4000
@@ -45,6 +46,8 @@ class Settings(BaseSettings):
     # Redis (Optional)
     redis_host: str = "localhost"
     redis_port: int = 6379
+    redis_db: int = 0
+    use_redis: bool = False
     
     # Extra Settings
     openai_temperature: float = 0.7

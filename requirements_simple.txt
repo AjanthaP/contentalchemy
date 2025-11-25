@@ -1,0 +1,40 @@
+# Core AI/ML - simplified for Python 3.13
+langchain>=0.1
+langchain-openai
+langgraph
+openai
+
+# Research & Web
+requests
+beautifulsoup4
+serpapi
+python-dotenv
+
+# UI
+streamlit
+plotly
+
+# Data Processing
+pydantic
+pydantic-settings
+pandas
+numpy
+
+# Utilities
+python-dateutil
+pillow
+markdown
+
+# Testing
+pytest
+pytest-asyncio
+pytest-cov
+
+# Optional Performance
+redis
+aiohttp
+
+# Code Quality
+black
+flake8
+mypy

@@ -30,6 +30,11 @@ pytest==8.2.1
 pytest-asyncio==0.23.8
 pytest-cov==5.0.0
 
+# API Layer
+fastapi==0.115.2
+uvicorn[standard]==0.30.6
+python-multipart==0.0.9
+
 # Optional Performance
 redis==5.0.4
 aiohttp==3.10.5
