@@ -105,14 +105,15 @@ class QueryHandlerAgent:
     
     def __call__(self, state) -> Dict:
         """LangGraph node function or direct string input"""
-        # Support both dict (from LangGraph) and string (direct call)
-        if isinstance(state, str):
+        # Use UI values if override is selected
+        if isinstance(state, dict) and state.get("override"):
+            query = state.get("ui_user_query", state.get("user_query", state.get("query", "")))
+        elif isinstance(state, str):
             query = state
         elif isinstance(state, dict):
             query = state.get("user_query", state.get("query", ""))
         else:
             query = str(state)
-        
         analysis = self.analyze(query)
         return {
             "query_analysis": analysis.model_dump(),

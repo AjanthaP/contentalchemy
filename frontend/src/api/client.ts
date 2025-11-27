@@ -6,7 +6,7 @@ import {
   ProfileUpdateRequest,
 } from "../types";
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000";
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "";
 
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   const response = await fetch(`${API_BASE_URL}${path}`, {
@@ -25,15 +25,15 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   return response.json() as Promise<T>;
 }
 
-export function fetchProfile(userId: string): Promise<ProfileResponse> {
-  return request(`/api/profile/${encodeURIComponent(userId)}`);
+export function fetchProfile(email: string): Promise<ProfileResponse> {
+  return request(`/api/profile/${encodeURIComponent(email)}`);
 }
 
 export function saveProfile(
-  userId: string,
+  email: string,
   payload: ProfileUpdateRequest,
 ): Promise<ProfileResponse> {
-  return request(`/api/profile/${encodeURIComponent(userId)}`, {
+  return request(`/api/profile/${encodeURIComponent(email)}`, {
     method: "PUT",
     body: JSON.stringify(payload),
   });

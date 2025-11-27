@@ -110,16 +110,23 @@ class ImageGeneratorAgent:
     
     def __call__(self, state: Dict) -> Dict:
         """LangGraph node function"""
-        user_request = state.get("user_query", "")
-        context = state.get("topic", "")
-        
+        # Use UI values if override is selected
+        if state.get("override"):
+            user_request = state.get("ui_user_query", "")
+            context = state.get("ui_topic", "")
+            size = state.get("ui_image_size", "1024x1024")
+            quality = state.get("ui_image_quality", "standard")
+        else:
+            user_request = state.get("user_query", "")
+            context = state.get("topic", "")
+            size = state.get("image_size", "1024x1024")
+            quality = state.get("image_quality", "standard")
         result = self.create_image(
             user_request=user_request,
             context=context,
-            size=state.get("image_size", "1024x1024"),
-            quality=state.get("image_quality", "standard")
+            size=size,
+            quality=quality
         )
-        
         return {
             "image_url": result.get("url", ""),
             "image_prompt": result.get("optimized_prompt", ""),

@@ -1320,7 +1320,7 @@ def create_content_workflow():
     # Set entry point
     workflow.set_entry_point("analyze_query")
     
-    # Add conditional routing after query analysis
+    # CONDITIONAL EDGE 1: From query_handler to content agents
     workflow.add_conditional_edges(
         "analyze_query",
         route_content,
@@ -1341,6 +1341,7 @@ def create_content_workflow():
             "blog": "blog",
             "linkedin": "linkedin",
             "strategy": "strategy",
+            "image": "image",
             "research": END
         }
     )

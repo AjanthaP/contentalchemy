@@ -51,32 +51,31 @@ class ConversationManager:
 
 class UserProfileManager:
     """Manages user profiles and preferences"""
-    
     def __init__(self, profile_path: str = "src/memory/user_profiles.json"):
         self.profile_path = profile_path
         self.profiles = self._load_profiles()
-    
+
     def _load_profiles(self) -> Dict:
         """Load user profiles"""
         if os.path.exists(self.profile_path):
             with open(self.profile_path, 'r') as f:
                 return json.load(f)
         return {}
-    
+
     def _save_profiles(self):
         """Save user profiles"""
         os.makedirs(os.path.dirname(self.profile_path), exist_ok=True)
         with open(self.profile_path, 'w') as f:
             json.dump(self.profiles, f, indent=2)
-    
-    def get_profile(self, user_id: str = "default") -> Dict:
-        """Get user profile"""
-        return self.profiles.get(user_id, self._create_default_profile())
-    
-    def _create_default_profile(self) -> Dict:
-        """Create default profile"""
+
+    def get_profile(self, user_email: str = "default") -> Dict:
+        """Get user profile by user_email"""
+        return self.profiles.get(user_email, self._create_default_profile(user_email))
+
+    def _create_default_profile(self, user_email: str = "default") -> Dict:
+        """Create default profile for user_email"""
         return {
-            "user_id": "default",
+            "user_email": user_email,
             "preferences": {
                 "tone": "professional",
                 "content_length": "medium",
@@ -91,66 +90,49 @@ class UserProfileManager:
             "content_history": [],
             "learned_preferences": {}
         }
-    
-    def update_profile(self, user_id: str, updates: Dict):
-        """Update user profile"""
-        if user_id not in self.profiles:
-            self.profiles[user_id] = self._create_default_profile()
-        
-        profile = self.profiles[user_id]
+
+    def update_profile(self, user_email: str, updates: Dict):
+        """Update user profile by user_email"""
+        if user_email not in self.profiles:
+            self.profiles[user_email] = self._create_default_profile(user_email)
+        profile = self.profiles[user_email]
         for key, value in updates.items():
             if key in profile:
                 if isinstance(profile[key], dict) and isinstance(value, dict):
                     profile[key].update(value)
                 else:
                     profile[key] = value
-        
         self._save_profiles()
-    
-    def learn_from_edits(self, user_id: str, original: str, edited: str):
-        """Learn from user edits"""
-        profile = self.get_profile(user_id)
-        
-        # Analyze differences
+
+    def learn_from_edits(self, user_email: str, original: str, edited: str):
+        """Learn from user edits by user_email"""
+        profile = self.get_profile(user_email)
         changes = self._analyze_changes(original, edited)
-        
-        # Update learned preferences
         if "learned_preferences" not in profile:
             profile["learned_preferences"] = {}
-        
         for change_type, change_data in changes.items():
             if change_type not in profile["learned_preferences"]:
                 profile["learned_preferences"][change_type] = []
             profile["learned_preferences"][change_type].append(change_data)
-        
-        self.profiles[user_id] = profile
+        self.profiles[user_email] = profile
         self._save_profiles()
-    
+
     def _analyze_changes(self, original: str, edited: str) -> Dict:
-        """Analyze what changed between original and edited"""
         changes = {}
-        
-        # Simple analysis: word count, tone indicators
         orig_words = len(original.split())
         edit_words = len(edited.split())
-        
         if abs(orig_words - edit_words) > 50:
             changes["length_preference"] = {
                 "original_words": orig_words,
                 "edited_words": edit_words,
                 "change": "shorter" if edit_words < orig_words else "longer"
             }
-        
-        # Check for tone changes (simple heuristic)
         formal_words = ["furthermore", "however", "therefore", "consequently"]
         casual_words = ["anyway", "basically", "pretty much", "kind of"]
-        
         orig_formal = sum(1 for word in formal_words if word in original.lower())
         edit_formal = sum(1 for word in formal_words if word in edited.lower())
-        
         if edit_formal < orig_formal:
             changes["tone_preference"] = "more casual"
         elif edit_formal > orig_formal:
             changes["tone_preference"] = "more formal"
-        
         return changes

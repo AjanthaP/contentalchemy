@@ -2,6 +2,8 @@
 from __future__ import annotations
 
 from fastapi import Depends, FastAPI, HTTPException
+from fastapi import FastAPI
+from src.integrations.linkedin_oauth import router as linkedin_router
 from fastapi.middleware.cors import CORSMiddleware
 
 from src.api import schemas
@@ -11,6 +13,7 @@ from src.optimization.content_validator import ContentValidator
 from src.workflow.langgraph_flow import generate_content as run_workflow
 
 app = FastAPI(title="ContentAlchemAI", version=settings.app_version)
+app.include_router(linkedin_router, prefix="/api")
 
 app.add_middleware(
     CORSMiddleware,
@@ -26,22 +29,22 @@ async def health() -> schemas.HealthResponse:
     return schemas.HealthResponse()
 
 
-@app.get("/api/profile/{user_id}", response_model=schemas.ProfileResponse)
-async def fetch_profile(user_id: str, profile_manager=Depends(get_profile_manager)):
-    profile = profile_manager.get_profile(user_id)
-    return schemas.ProfileResponse(user_id=user_id, profile=profile)
+@app.get("/api/profile/{user_email}", response_model=schemas.ProfileResponse)
+async def fetch_profile(user_email: str, profile_manager=Depends(get_profile_manager)):
+    profile = profile_manager.get_profile(user_email)
+    return schemas.ProfileResponse(user_email=user_email, profile=profile)
 
 
-@app.put("/api/profile/{user_id}", response_model=schemas.ProfileResponse)
+@app.put("/api/profile/{user_email}", response_model=schemas.ProfileResponse)
 async def update_profile(
-    user_id: str,
+    user_email: str,
     payload: schemas.ProfileUpdateRequest,
     profile_manager=Depends(get_profile_manager),
 ):
     updates = payload.model_dump(exclude_unset=True)
-    profile_manager.update_profile(user_id, updates)
-    profile = profile_manager.get_profile(user_id)
-    return schemas.ProfileResponse(user_id=user_id, profile=profile)
+    profile_manager.update_profile(user_email, updates)
+    profile = profile_manager.get_profile(user_email)
+    return schemas.ProfileResponse(user_email=user_email, profile=profile)
 
 
 @app.post("/api/generate", response_model=schemas.GenerateResponse)
@@ -97,7 +100,7 @@ async def generate_content(payload: schemas.GenerateRequest):
 
     return schemas.GenerateResponse(
         session_id=session_id,
-        user_id=payload.user_id,
+        user_email=getattr(payload, "user_email", "default"),
         content_type=response_content_type,
         final_content=final_content,
         metadata=result.get("metadata", {}),

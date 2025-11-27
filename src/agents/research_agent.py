@@ -174,18 +174,24 @@ class DeepResearchAgent:
     
     def __call__(self, state: Dict) -> Dict:
         """LangGraph node function"""
-        # Fallback to UI selection if not in query_analysis
-        topic = state.get("topic") or state.get("user_profile", {}).get("topic") or "General Research"
-        keywords = state.get("keywords") or state.get("user_profile", {}).get("keywords") or []
-        tone = state.get("query_analysis", {}).get("tone") or state.get("tone", "professional")
-        target_words = state.get("query_analysis", {}).get("target_words") or state.get("target_words", 1200)
-        num_results = state.get("max_results", 10)
+        # Use UI values if override is selected
+        if state.get("override"):
+            topic = state.get("ui_topic", state.get("topic", "General Research"))
+            keywords = state.get("ui_keywords", [])
+            tone = state.get("ui_tone", "professional")
+            target_words = state.get("ui_target_words", 1200)
+            num_results = state.get("ui_max_results", 10)
+        else:
+            topic = state.get("topic") or state.get("user_profile", {}).get("topic") or "General Research"
+            keywords = state.get("keywords") or state.get("user_profile", {}).get("keywords") or []
+            tone = state.get("query_analysis", {}).get("tone") or state.get("tone", "professional")
+            target_words = state.get("query_analysis", {}).get("target_words") or state.get("target_words", 1200)
+            num_results = state.get("max_results", 10)
         report = self.research(
             topic=topic,
             keywords=keywords,
             num_results=num_results
         )
-        
         return {
             "research_report": report.model_dump(),
             "research_summary": report.summary,

@@ -116,13 +116,23 @@ Based on this research, consider the following content opportunities:
     
     def __call__(self, state: Dict) -> Dict:
         """LangGraph node function"""
+        # Use UI values if override is selected
+        if state.get("override"):
+            topic = state.get("ui_topic", state.get("topic", ""))
+            research_summary = state.get("ui_research_summary", "")
+            key_findings = state.get("ui_key_findings", [])
+            sources = state.get("ui_sources", [])
+        else:
+            topic = state.get("topic", "")
+            research_summary = state.get("research_summary", "")
+            key_findings = state.get("key_findings", [])
+            sources = state.get("research_report", {}).get("sources", [])
         formatted_report = self.format_research(
-            topic=state["topic"],
-            research_summary=state.get("research_summary", ""),
-            key_findings=state.get("key_findings", []),
-            sources=state.get("research_report", {}).get("sources", [])
+            topic=topic,
+            research_summary=research_summary,
+            key_findings=key_findings,
+            sources=sources
         )
-        
         return {
             "formatted_content": formatted_report,
             "content_type": "research_report"

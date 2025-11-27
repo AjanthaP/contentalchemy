@@ -10,9 +10,10 @@ class ContentType(str, Enum):
 
 class Settings(BaseSettings):
     # API Configuration
-    #openai_api_key: str
+    openai_api_key: Optional[str] = None
+    serp_api_key: Optional[str] = None
+    langsmith_api_key: Optional[str] = None
     openai_model: str = "gpt-4-turbo-preview"
-    # serp_api_key: str = ""
     
     # Optional API Keys
     perplexity_api_key: Optional[str] = None
@@ -52,6 +53,11 @@ class Settings(BaseSettings):
     # Extra Settings
     openai_temperature: float = 0.7
     app_version: str = "1.0.0"
+
+    # LinkedIn OAuth
+    linkedin_client_id: Optional[str] = None
+    linkedin_client_secret: Optional[str] = None
+    linkedin_redirect_uri: Optional[str] = None
     
     class Config:
         env_file = ".env"

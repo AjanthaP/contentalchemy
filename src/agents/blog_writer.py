@@ -34,7 +34,7 @@ class SEOBlogWriterAgent:
         Key Points to Cover:
         {key_findings}
         
-        Create a blog post (1000-2000 words) with:
+        Create a blog post ({target_words} words) with:
         
         1. **Compelling Title** (60-70 characters, includes primary keyword)
         2. **Meta Description** (150-160 characters, compelling, includes keyword)
@@ -173,20 +173,26 @@ Ready to get started? Begin by implementing one strategy from this guide today.
     
     def __call__(self, state: Dict) -> Dict:
         """LangGraph node function"""
-        # Fallback to UI selection if not in query_analysis
-        audience = state.get("query_analysis", {}).get("target_audience") or state.get("user_profile", {}).get("target_audience") or "general"
-        tone = state.get("query_analysis", {}).get("tone") or state.get("tone", "professional")
-        target_words = state.get("query_analysis", {}).get("target_words") or state.get("target_words", 1200)
+        # Use UI values if override is selected
+        if state.get("override"):
+            audience = state.get("ui_target_audience", "general")
+            tone = state.get("ui_tone", "professional")
+            target_words = state.get("ui_target_words", 1200)
+            keywords = state.get("ui_keywords", [])
+        else:
+            audience = state.get("query_analysis", {}).get("target_audience") or state.get("user_profile", {}).get("target_audience") or "general"
+            tone = state.get("query_analysis", {}).get("tone") or state.get("tone", "professional")
+            target_words = state.get("query_analysis", {}).get("target_words") or state.get("target_words", 1200)
+            keywords = state.get("keywords", [])
         blog_content = self.write_blog(
             topic=state["topic"],
-            keywords=state["keywords"],
+            keywords=keywords,
             research_summary=state.get("research_summary", ""),
             key_findings=state.get("key_findings", []),
             audience=audience,
             tone=tone,
             target_words=target_words
         )
-        
         return {
             "blog_content": blog_content,
             "content_type": "blog",

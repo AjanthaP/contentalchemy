@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import "./App.css";
 import {
@@ -80,10 +80,42 @@ const initialFormState = {
 };
 
 function App() {
+    // Handler to post LinkedIn content
+    const [posting, setPosting] = useState(false);
+    const [postStatus, setPostStatus] = useState<string | null>(null);
+
+    const handlePostToLinkedIn = async () => {
+      if (!result?.final_content || !linkedinToken) {
+        setPostStatus("Missing LinkedIn token or content.");
+        return;
+      }
+      setPosting(true);
+      setPostStatus(null);
+      try {
+        const res = await fetch("/api/linkedin/post", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${linkedinToken}`,
+          },
+          body: JSON.stringify({ content: result.final_content }),
+        });
+        if (res.ok) {
+          setPostStatus("Successfully posted to LinkedIn.");
+        } else {
+          const data = await res.json().catch(() => ({}));
+          setPostStatus(data?.error || "Failed to post to LinkedIn.");
+        }
+      } catch (err) {
+        setPostStatus("Error posting to LinkedIn.");
+      } finally {
+        setPosting(false);
+      }
+    };
   const [form, setForm] = useState(initialFormState);
-  const [userId, setUserId] = useState(
-    () => localStorage.getItem("contentalchemy.userId") ?? "default",
-  );
+  const [overrideEnabled, setOverrideEnabled] = useState(false);
+  // userEmail is derived from LinkedIn profile or fallback
+  const [userEmail, setUserEmail] = useState<string>("default_guest");
   const [sessionId, setSessionId] = useState(
     () => localStorage.getItem("contentalchemy.sessionId") ?? "",
   );
@@ -97,11 +129,29 @@ function App() {
     "content",
   );
   const [expandedMessages, setExpandedMessages] = useState<Set<number>>(new Set());
+  // LinkedIn OAuth token state
+  const [linkedinToken, setLinkedinToken] = useState(() => localStorage.getItem("contentalchemy.linkedinToken") || "");
+  interface LinkedinProfile {
+    given_name?: string;
+    family_name?: string;
+    email?: string;
+    [key: string]: unknown;
+  }
+  const [linkedinProfile, setLinkedinProfile] = useState<LinkedinProfile | null>(null);
 
-  const currentContent = useMemo(
-    () => contentOptions.find((option) => option.value === form.contentType)!,
-    [form.contentType],
-  );
+    // LinkedIn logout handler
+    const handleLinkedinLogout = () => {
+      setLinkedinToken("");
+      setLinkedinProfile(null);
+      localStorage.removeItem("contentalchemy.linkedinToken");
+      // Optionally reload page to clear query params/state
+      // window.location.reload();
+    };
+
+  // const currentContent = useMemo(
+  //   () => contentOptions.find((option) => option.value === form.contentType)!,
+  //   [form.contentType],
+  // );
 
   const toggleMessage = (index: number) => {
     setExpandedMessages((prev) => {
@@ -115,30 +165,67 @@ function App() {
     });
   };
 
+  // Set userEmail from LinkedIn profile or fallback, replacing '@' and '.' with '_'
   useEffect(() => {
-    localStorage.setItem("contentalchemy.userId", userId);
-    fetchProfile(userId)
-      .then((profileResponse) => {
-        const preferences = profileResponse.profile?.preferences as
-          | Record<string, unknown>
-          | undefined;
-        setForm((prev) => ({
-          ...prev,
-          tone: (preferences?.tone as string) ?? prev.tone,
-          includeSources:
-            typeof preferences?.include_sources === "boolean"
-              ? (preferences?.include_sources as boolean)
-              : prev.includeSources,
-          enableSeo:
-            typeof preferences?.seo_optimization === "boolean"
-              ? (preferences?.seo_optimization as boolean)
-              : prev.enableSeo,
-        }));
-      })
-      .catch(() => {
-        /* profile optional */
-      });
-  }, [userId]);
+    let email = "default_guest";
+    if (linkedinProfile && linkedinProfile.email) {
+      email = linkedinProfile.email.replace(/[@.]/g, "_");
+    }
+    setUserEmail(email);
+    if (email) {
+      fetchProfile(email)
+        .then((profileResponse) => {
+          const preferences = profileResponse.profile?.preferences as
+            | Record<string, unknown>
+            | undefined;
+          setForm((prev) => ({
+            ...prev,
+            tone: (preferences?.tone as string) ?? prev.tone,
+            includeSources:
+              typeof preferences?.include_sources === "boolean"
+                ? (preferences?.include_sources as boolean)
+                : prev.includeSources,
+            enableSeo:
+              typeof preferences?.seo_optimization === "boolean"
+                ? (preferences?.seo_optimization as boolean)
+                : prev.enableSeo,
+          }));
+        })
+        .catch(() => {
+          /* profile optional */
+        });
+    }
+  }, [linkedinProfile]);
+
+    // LinkedIn OAuth token handling: detect token in callback URL, store, and fetch profile
+    useEffect(() => {
+      const params = new URLSearchParams(window.location.search);
+      const token = params.get("linkedin_token");
+      if (token) {
+        setLinkedinToken(token);
+        localStorage.setItem("contentalchemy.linkedinToken", token);
+        // Remove token from URL for cleanliness
+        window.history.replaceState({}, document.title, window.location.pathname);
+      }
+    }, []);
+
+    // Optionally fetch LinkedIn profile if token is present
+    useEffect(() => {
+      if (linkedinToken) {
+        console.log("LinkedIn token used for profile fetch:", linkedinToken); // Add this line
+        fetch("/api/linkedin/profile", {
+          headers: { Authorization: `Bearer ${linkedinToken}` },
+        })
+          .then((res) => res.ok ? res.json() : null)
+          .then((data) => {
+            console.log("Fetched LinkedIn profile data:", data); // Add this line
+            if (data && data.profile) setLinkedinProfile(data.profile);
+          })
+          .catch(() => {
+            // intentionally ignore LinkedIn profile fetch errors
+          });
+      }
+    }, [linkedinToken]);
 
   useEffect(() => {
     if (!sessionId) {
@@ -155,7 +242,7 @@ function App() {
     setProfileSaving(true);
     setProfileNote(null);
     try {
-      await saveProfile(userId, {
+      await saveProfile(userEmail, {
         preferences: {
           tone: form.tone.toLowerCase(),
           include_sources: form.includeSources,
@@ -179,24 +266,26 @@ function App() {
     setLoading(true);
     setStatus(null);
     try {
+      const selectedContentType = form.contentType;
       const payload: GenerateRequest = {
         session_id: sessionId || undefined,
-        user_id: userId,
+        user_id: userEmail,
         user_query: form.query,
-        content_type: form.contentType,
+        content_type: selectedContentType,
         tone: form.tone.toLowerCase(),
         enable_seo: form.enableSeo,
         include_sources: form.includeSources,
         target_words:
-          form.contentType === "blog" || form.contentType === "research"
+          selectedContentType === "blog" || selectedContentType === "research"
             ? form.targetWords
             : undefined,
         target_audience: form.targetAudience || undefined,
         keywords: form.keywords || undefined,
         additional_notes: form.additionalNotes || undefined,
-        image_size: form.contentType === "image" ? form.imageSize : undefined,
+        image_size: selectedContentType === "image" ? form.imageSize : undefined,
         image_quality:
-          form.contentType === "image" ? form.imageQuality : undefined,
+          selectedContentType === "image" ? form.imageQuality : undefined,
+        override: overrideEnabled,
       };
 
       const response = await generateContent(payload);
@@ -256,34 +345,142 @@ function App() {
         <aside className="sidebar">
           <section className="panel">
             <h2>Configuration</h2>
-            <label className="field">
-              <span>User ID</span>
-              <input
-                value={userId}
-                onChange={(event) => setUserId(event.target.value.trim() || "default")}
-              />
-            </label>
+            {/* Email input removed. Email is now set from LinkedIn profile or defaults to 'default_guest'. */}
 
-            <div className="options">
-              {contentOptions.map((option) => (
-                <button
-                  key={option.value}
-                  className={`option ${
-                    option.value === form.contentType ? "active" : ""
-                  }`}
-                  onClick={() =>
-                    setForm((prev) => ({ ...prev, contentType: option.value }))
-                  }
+            <div style={{ marginBottom: 16 }}>
+              {/* LinkedIn OAuth Button */}
+              {!linkedinToken ? (
+                <a
+                  href="/api/linkedin/login"
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    background: '#0077b5',
+                    color: '#fff',
+                    borderRadius: 6,
+                    padding: '8px 16px',
+                    margin: '12px 0',
+                    fontWeight: 600,
+                    textDecoration: 'none',
+                    boxShadow: '0 2px 8px rgba(0,119,181,0.08)',
+                    transition: 'background 0.2s',
+                  }}
+                  title="Sign in with LinkedIn"
                 >
-                  <div>
-                    <strong>{option.label}</strong>
-                    <p>{option.description}</p>
+                  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" style={{ marginRight: 8 }}>
+                    <rect width="24" height="24" rx="4" fill="#0077b5"/>
+                    <path d="M7.1 19H4.6V9H7.1V19ZM5.85 7.8C5.01 7.8 4.35 7.13 4.35 6.3C4.35 5.47 5.01 4.8 5.85 4.8C6.69 4.8 7.35 5.47 7.35 6.3C7.35 7.13 6.69 7.8 5.85 7.8ZM19.1 19H16.6V14.2C16.6 13.07 16.57 11.61 15.07 11.61C13.56 11.61 13.34 12.85 13.34 14.12V19H10.84V9H13.22V10.34H13.25C13.59 9.72 14.37 9.07 15.47 9.07C18.13 9.07 19.1 10.77 19.1 13.13V19Z" fill="white"/>
+                  </svg>
+                  Sign in with LinkedIn
+                </a>
+              ) : (
+                <div style={{
+                  display: 'flex',
+                  background: '#eaf6fb',
+                  color: '#0077b5',
+                  borderRadius: 6,
+                  padding: '8px 16px',
+                  margin: '12px 0',
+                  fontWeight: 600,
+                  boxShadow: '0 2px 8px rgba(0,119,181,0.08)',
+                  flexDirection: 'column',
+                  alignItems: 'flex-start',
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', width: '100%' }}>
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" style={{ marginRight: 8 }}>
+                      <rect width="24" height="24" rx="4" fill="#0077b5"/>
+                      <path d="M7.1 19H4.6V9H7.1V19ZM5.85 7.8C5.01 7.8 4.35 7.13 4.35 6.3C4.35 5.47 5.01 4.8 5.85 4.8C6.69 4.8 7.35 5.47 7.35 6.3C7.35 7.13 6.69 7.8 5.85 7.8ZM19.1 19H16.6V14.2C16.6 13.07 16.57 11.61 15.07 11.61C13.56 11.61 13.34 12.85 13.34 14.12V19H10.84V9H13.22V10.34H13.25C13.59 9.72 14.37 9.07 15.47 9.07C18.13 9.07 19.1 10.77 19.1 13.13V19Z" fill="white"/>
+                    </svg>
+                    <span>LinkedIn Connected</span>
+                    <button
+                      onClick={handleLinkedinLogout}
+                      style={{
+                        marginLeft: 12,
+                        background: '#fff',
+                        color: '#0077b5',
+                        border: '1px solid #0077b5',
+                        borderRadius: 4,
+                        padding: '4px 12px',
+                        fontWeight: 500,
+                        cursor: 'pointer',
+                        boxShadow: '0 1px 4px rgba(0,119,181,0.08)',
+                        transition: 'background 0.2s',
+                      }}
+                      title="Logout from LinkedIn"
+                    >
+                      Logout
+                    </button>
                   </div>
-                </button>
-              ))}
+                  {/* Profile Section */}
+                  {linkedinProfile && (
+                    <div style={{ marginTop: 12, width: '100%', background: '#fff', borderRadius: 4, padding: 12, boxShadow: '0 1px 4px rgba(0,119,181,0.08)' }}>
+                      <h4 style={{ margin: '0 0 8px 0', color: '#0077b5' }}>Profile</h4>
+                      <div style={{ fontSize: 15, fontWeight: 500 }}>
+                        {linkedinProfile.given_name} {linkedinProfile.family_name}
+                      </div>
+                      {linkedinProfile.email && (
+                        <div style={{ fontSize: 13, color: '#555' }}>Email: {linkedinProfile.email}</div>
+                      )}
+                      {/* Add more profile fields as needed */}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
+              
+              <label className="field" style={{ display: 'flex', alignItems: 'center', marginBottom: 0 }}>
+                <span style={{ marginRight: 8 }}>Override Routing</span>
+                <span
+                  style={{
+                    display: 'inline-block',
+                    width: 48,
+                    height: 24,
+                    borderRadius: 12,
+                    background: overrideEnabled ? 'linear-gradient(90deg, #4caf50 60%, #388e3c 100%)' : 'linear-gradient(90deg, #ccc 60%, #888 100%)',
+                    cursor: 'pointer',
+                    boxShadow: overrideEnabled ? '0 0 4px #4caf50' : '0 0 2px #888',
+                    position: 'relative',
+                    transition: 'background 0.2s',
+                    marginBottom: 8,
+                  }}
+                  onClick={() => setOverrideEnabled(!overrideEnabled)}
+                >
+                  <span
+                    style={{
+                      position: 'absolute',
+                      left: overrideEnabled ? 24 : 4,
+                      top: 4,
+                      width: 16,
+                      height: 16,
+                      borderRadius: '50%',
+                      background: '#fff',
+                      boxShadow: '0 1px 4px rgba(0,0,0,0.08)',
+                      transition: 'left 0.2s',
+                    }}
+                  />
+                </span>
+              </label>
 
-            <details className="expander" open>
+                {/* Move Content Type dropdown below override toggle */}
+                <label className="field">
+                  <span>Content Type</span>
+                  <select
+                    value={form.contentType}
+                    onChange={(event) =>
+                      setForm((prev) => ({ ...prev, contentType: event.target.value as ContentType }))
+                    }
+                    style={{ marginBottom: 12 }}
+                  >
+                    {contentOptions.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+            <details style={{ marginBottom: 16 }} className="expander" open>
               <summary>Advanced Settings</summary>
               <label className="field">
                 <span>Tone</span>
@@ -300,41 +497,40 @@ function App() {
                   ))}
                 </select>
               </label>
-
-              <label className="checkbox">
-                <input
-                  type="checkbox"
-                  checked={form.enableSeo}
-                  onChange={(event) =>
-                    setForm((prev) => ({
-                      ...prev,
-                      enableSeo: event.target.checked,
-                    }))
-                  }
-                />
-                Enable SEO optimization
-              </label>
-
-              <label className="checkbox">
-                <input
-                  type="checkbox"
-                  checked={form.includeSources}
-                  onChange={(event) =>
-                    setForm((prev) => ({
-                      ...prev,
-                      includeSources: event.target.checked,
-                    }))
-                  }
-                />
-                Include sources when available
-              </label>
-
+              <div className="grid two">
+                <label className="checkbox" style={{ display: 'flex', alignItems: 'flex-start', marginTop: 8, marginBottom: 0 }}>
+                  <input
+                    type="checkbox"
+                    checked={form.enableSeo}
+                    onChange={(event) =>
+                      setForm((prev) => ({
+                        ...prev,
+                        enableSeo: event.target.checked,
+                      }))
+                    }
+                  />
+                  SEO optimization
+                </label>
+                <label className="checkbox">
+                  <input
+                    type="checkbox"
+                    checked={form.includeSources}
+                    onChange={(event) =>
+                      setForm((prev) => ({
+                        ...prev,
+                        includeSources: event.target.checked,
+                      }))
+                    }
+                  />
+                  Include sources
+                </label>
+              </div>
               {(form.contentType === "blog" || form.contentType === "research") && (
                 <label className="field">
                   <span>Target Word Count: {form.targetWords}</span>
                   <input
                     type="range"
-                    min={800}
+                    min={600}
                     max={2500}
                     step={100}
                     value={form.targetWords}
@@ -347,7 +543,6 @@ function App() {
                   />
                 </label>
               )}
-
               {isImageRequest && (
                 <div className="image-settings">
                   <label className="field">
@@ -397,10 +592,25 @@ function App() {
             </div>
           </section>
         </aside>
-
         <main className="main">
           <section className="panel form-panel">
-            <h2>Content Request</h2>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <h2>Content Request</h2>
+              {/* Always show Post to LinkedIn button */}
+              {postStatus && (
+                <span style={{ marginLeft: 12, color: postStatus.includes("Success") ? "#388e3c" : "#d32f2f" }}>
+                  {postStatus}
+                </span>
+              )}
+              <button
+                className="primary"
+                style={{ marginLeft: 8 }}
+                onClick={handlePostToLinkedIn}
+                disabled={posting}
+              >
+                {posting ? "Posting..." : "Post to LinkedIn"}
+              </button>
+            </div>
             <label className="field">
               <span>What should we create?</span>
               <textarea
@@ -413,7 +623,9 @@ function App() {
               />
             </label>
 
-            <details className="expander" open>
+            {/* ...existing code... */}
+
+            <details className="expander" style={{marginBottom: 8}} open>
               <summary>Additional context</summary>
               <div className="grid two">
                 <label className="field">
@@ -464,7 +676,7 @@ function App() {
               onClick={handleGenerate}
               disabled={loading}
             >
-              {loading ? "Working..." : currentContent.actionLabel}
+              {loading ? "Working..." : "Generate Content"}
             </button>
           </section>
 
@@ -480,6 +692,7 @@ function App() {
                 <div className="actions">
                   <button onClick={() => downloadContent("md")}>Download .md</button>
                   <button onClick={() => downloadContent("txt")}>Download .txt</button>
+                  
                 </div>
               </div>
 
@@ -602,9 +815,21 @@ function App() {
                   )}
                 </div>
               )}
+
+              {/* Metadata Section */}
+              <div className="metadata-panel" style={{ marginTop: 24, padding: 16, background: "#f9f9f9", borderRadius: 8 }}>
+                <h3>Metadata</h3>
+                <ul style={{ listStyle: "none", padding: 0 }}>
+                  <li><strong>Content Type:</strong> {result.content_type}</li>
+                  <li><strong>Tone:</strong> {typeof result.metadata?.tone === 'string' ? result.metadata.tone : form.tone}</li>
+                  <li><strong>Word Length:</strong> {typeof result.metadata?.word_count === 'number' ? result.metadata.word_count : (typeof result.metadata?.char_count === 'number' ? result.metadata.char_count : (typeof result.final_content === 'string' ? result.final_content.length : "N/A"))}</li>
+                  <li><strong>Target Audience:</strong> {typeof result.metadata?.target_audience === 'string' ? result.metadata.target_audience : (form.targetAudience || "N/A")}</li>
+                  <li><strong>Keywords:</strong> {Array.isArray(result.metadata?.keywords) ? result.metadata.keywords.join(", ") : (typeof result.metadata?.keywords === 'string' ? result.metadata.keywords : (form.keywords || "N/A"))}</li>
+                  {/* Add more fields as needed */}
+                </ul>
+              </div>
             </section>
           )}
-
           {history.length > 0 && (
             <section className="panel history-panel">
               <h2>Conversation History</h2>
@@ -635,7 +860,6 @@ function App() {
               </ul>
             </section>
           )}
-
           <section className="panel tips-panel">
             <h2>Tips & Examples</h2>
             <ul>

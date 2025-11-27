@@ -18,7 +18,7 @@ class Message(BaseModel):
 
 class GenerateRequest(BaseModel):
     session_id: Optional[str] = None
-    user_id: str = "default"
+    user_email: str = "default"
     user_query: str
     content_type: ContentTypeLiteral
     tone: str = "professional"
@@ -33,7 +33,7 @@ class GenerateRequest(BaseModel):
 
 
 class ProfileResponse(BaseModel):
-    user_id: str
+    user_email: str
     profile: Dict[str, Any]
 
 
@@ -58,7 +58,7 @@ class HealthResponse(BaseModel):
 
 class GenerateResponse(BaseModel):
     session_id: str
-    user_id: str
+    user_email: str
     content_type: ContentTypeLiteral
     final_content: str
     metadata: Dict[str, Any] = Field(default_factory=dict)

@@ -8,49 +8,49 @@ class LinkedInPostAgent:
     def __init__(self, llm):
         self.llm = llm
         self.prompt = ChatPromptTemplate.from_template("""
-        You are a LinkedIn content strategist creating engaging professional posts.
+          You are a LinkedIn content strategist creating engaging professional posts.
         
-        Topic: {topic}
-        Key Points: {key_points}
-        Tone: {tone}
-        Target Audience: {audience}
+          Topic: {topic}
+          Key Points: {key_points}
+          Tone: {tone}
+          Target Audience: {audience}
         
-        Create a LinkedIn post that:
+          Create a LinkedIn post that:
         
-        1. **Hook** (First 1-2 lines): Grab attention immediately
-           - Use a question, stat, or bold statement
-           - Must work as a preview (first 2 lines visible)
+          1. **Hook** (First 1-2 lines): Grab attention immediately
+              - Use a question, stat, or bold statement
+              - Must work as a preview (first 2 lines visible)
         
-        2. **Body** (Main content):
-           - Tell a story or share insight
-           - Use short paragraphs (1-2 sentences each)
-           - Include 3-5 key points
-           - Add white space for readability
-           - Use emojis strategically (2-4 total)
+          2. **Body** (Main content):
+              - Tell a story or share insight
+              - Use short paragraphs (1-2 sentences each)
+              - Include 3-5 key points
+              - Add white space for readability
+              - Use emojis strategically (2-4 total)
         
-        3. **Value** (What readers gain):
-           - Clear takeaway or lesson
-           - Actionable advice
+          3. **Value** (What readers gain):
+              - Clear takeaway or lesson
+              - Actionable advice
         
-        4. **Engagement** (Call-to-action):
-           - Question for comments
-           - Invitation to discuss
+          4. **Engagement** (Call-to-action):
+              - Question for comments
+              - Invitation to discuss
         
-        5. **Hashtags** (3-5 relevant):
-           - Mix of popular and niche
-           - Placed at end
+          5. **Hashtags** (3-5 relevant):
+              - Mix of popular and niche
+              - Placed at end
         
-        Length: 1300-2000 characters (optimal for LinkedIn)
+          Length: {{targetWords}} characters (optimal for LinkedIn)
         
-        Style Guidelines:
-        - Professional but conversational
-        - Use "you" to address reader
-        - Short sentences (10-15 words)
-        - One idea per paragraph
-        - Strategic line breaks
+          Style Guidelines:
+          - Professional but conversational
+          - Use "you" to address reader
+          - Short sentences (10-15 words)
+          - One idea per paragraph
+          - Strategic line breaks
         
-        Format with proper line breaks and spacing for LinkedIn readability.
-        """)
+          Format with proper line breaks and spacing for LinkedIn readability.
+          """)
     
     def write_post(self, topic: str, key_points: List[str],
                    audience: str = "professionals", 
@@ -110,16 +110,21 @@ Drop your thoughts in the comments! 💬
     
     def __call__(self, state: Dict) -> Dict:
         """LangGraph node function"""
-        # Fallback to UI selection if not in query_analysis
-        audience = state.get("query_analysis", {}).get("target_audience") or state.get("user_profile", {}).get("target_audience") or "professionals"
-        tone = state.get("query_analysis", {}).get("tone") or state.get("tone", "professional")
+        # Use UI values if override is selected
+        if state.get("override"):
+            audience = state.get("ui_target_audience", "professionals")
+            tone = state.get("ui_tone", "professional")
+            key_points = state.get("ui_key_points", [])[:5]
+        else:
+            audience = state.get("query_analysis", {}).get("target_audience") or state.get("user_profile", {}).get("target_audience") or "professionals"
+            tone = state.get("query_analysis", {}).get("tone") or state.get("tone", "professional")
+            key_points = state.get("key_findings", [])[:5]
         post_content = self.write_post(
             topic=state["topic"],
-            key_points=state.get("key_findings", [])[:5],
+            key_points=key_points,
             audience=audience,
             tone=tone
         )
-        
         return {
             "linkedin_content": post_content,
             "content_type": "linkedin",
