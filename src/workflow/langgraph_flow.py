@@ -19,7 +19,25 @@ class ContentState(TypedDict):
     """State for content generation workflow"""
     # Input
     user_query: str
-    
+    override: bool  # Ensure override is always present
+    requested_content_type: str
+    user_profile: dict
+    session_id: str
+    tone: str
+    target_words: int
+    keywords: str
+    target_audience: str
+    topic: str
+    key_findings: list[str]
+    research_summary: str
+    sources: list[str]
+    enable_seo: bool
+    max_results: int
+    key_points: list[str]
+    image_provider: str
+    image_size: str
+    image_quality: str
+
     # Query Analysis
     query_analysis: dict
     intent: str
@@ -70,30 +88,37 @@ def create_content_workflow():
     research_agent = DeepResearchAgent(llm, settings.serp_api_key)
     blog_writer = SEOBlogWriterAgent(llm)
     linkedin_writer = LinkedInPostAgent(llm)
-    image_generator = ImageGeneratorAgent(llm, settings.openai_api_key)
     content_strategist = ContentStrategistAgent(llm)
+
+    def image_node(state):
+        print(f"[DEBUG] [Image Node] State override: {state.get('override', None)}")
+        provider = state.get("image_provider") or state.get("ui_image_provider") or "stable-diffusion"
+        print(f"[Image Node] Using provider: {provider}")
+        agent = ImageGeneratorAgent(provider, llm, settings.openai_api_key, settings.hf_api_key)
+        return agent(state)
 
     # Router function
     def route_content(state: ContentState) -> str:
-        """Route to appropriate content generation agent, supporting override toggle."""
-        # If override is enabled, route to requested_content_type directly
+        print("[DEBUG] [Router] State:", state)
         override = state.get("override", False)
+        print(f"[DEBUG] [Router] override: {override}")
         if override:
             requested_type = state.get("requested_content_type")
+            print(f"[DEBUG] [Router] Override enabled, requested_content_type: {requested_type}")
             return requested_type if requested_type else "analyze_query"
 
         requested_type = state.get("requested_content_type")
-        # Fallback to UI selection if keyword search or query analysis fails
         if requested_type:
+            print(f"[DEBUG] [Router] requested_content_type: {requested_type}")
             return requested_type
 
-        # Fallback: check user input for keywords
         user_query = state.get("user_query", "").lower()
         for keyword in ["research", "blog", "linkedin", "image", "strategy"]:
             if keyword in user_query:
+                print(f"[DEBUG] [Router] keyword match: {keyword}")
                 return keyword
 
-        # Fallback to UI selection (API input)
+        print("[DEBUG] [Router] fallback to requested_content_type or 'research'")
         return state.get("requested_content_type", "research")
 
     # Create workflow
@@ -111,7 +136,7 @@ def create_content_workflow():
     workflow.add_node("research", log_wrapper(research_agent, "research"))
     workflow.add_node("blog", log_wrapper(blog_writer, "blog"))
     workflow.add_node("linkedin", log_wrapper(linkedin_writer, "linkedin"))
-    workflow.add_node("image", log_wrapper(image_generator, "image"))
+    workflow.add_node("image", log_wrapper(image_node, "image"))
     workflow.add_node("strategy", log_wrapper(content_strategist, "strategy"))
 
     # Set entry point
@@ -160,6 +185,9 @@ def generate_content(query: str, content_type: str, user_profile: dict = None, s
     fallback_tone = os.getenv("DEFAULT_TONE", "professional")
     fallback_target_words = int(os.getenv("DEFAULT_TARGET_WORDS", "1200"))
 
+    # Always set user_profile as a dict
+    if user_profile is None:
+        user_profile = {}
     initial_state = {
         "user_query": query,
         "messages": [],
@@ -169,21 +197,36 @@ def generate_content(query: str, content_type: str, user_profile: dict = None, s
         "tone": fallback_tone,
         "target_words": fallback_target_words
     }
-    # If override is set in user_profile, pass override and all UI values
-    if user_profile and user_profile.get("override"):
-        initial_state["override"] = True
-        # Pass all relevant UI values if present
-        for key in [
-            "ui_tone", "ui_keywords", "ui_target_words", "ui_target_audience", "ui_topic",
-            "ui_key_findings", "ui_research_summary", "ui_sources", "ui_user_query",
-            "ui_image_size", "ui_image_quality", "ui_max_results", "ui_key_points",
-            "ui_enable_seo"
-        ]:
-            if key in user_profile:
-                initial_state[key] = user_profile[key]
+    print("[DEBUG] Initial state before UI mapping:", initial_state)
+    # Always set override from user_profile or directly from payload
+    initial_state["override"] = bool(user_profile.get("override", False))
+    print(f"[DEBUG] After setting override: {initial_state['override']}")
+    # Map UI fields to both ui_* and main keys for workflow compatibility
+    ui_to_main = {
+        "ui_tone": "tone",
+        "ui_keywords": "keywords",
+        "ui_target_words": "target_words",
+        "ui_target_audience": "target_audience",
+        "ui_topic": "topic",
+        "ui_key_findings": "key_findings",
+        "ui_research_summary": "research_summary",
+        "ui_sources": "sources",
+        "ui_user_query": "user_query",
+        "ui_image_size": "image_size",
+        "ui_image_quality": "image_quality",
+        "ui_image_provider": "image_provider",
+        "ui_max_results": "max_results",
+        "ui_key_points": "key_points",
+        "ui_enable_seo": "enable_seo"
+    }
+    for ui_key, main_key in ui_to_main.items():
+        if ui_key in user_profile:
+            initial_state[ui_key] = user_profile[ui_key]
+            initial_state[main_key] = user_profile[ui_key]
+    print("[DEBUG] Initial state after UI mapping:", initial_state)
     try:
+        print("[DEBUG] State before workflow.invoke:", initial_state)
         result = workflow.invoke(initial_state)
-        # ...existing code...
         content_type = result.get("content_type", "research")
         if content_type == "blog":
             final_content = result.get("blog_content", "")

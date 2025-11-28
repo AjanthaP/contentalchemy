@@ -30,6 +30,7 @@ class GenerateRequest(BaseModel):
     additional_notes: Optional[str] = None
     image_size: Optional[str] = None
     image_quality: Optional[str] = None
+    image_provider: Optional[str] = None
 
 
 class ProfileResponse(BaseModel):

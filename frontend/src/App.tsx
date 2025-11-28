@@ -77,6 +77,7 @@ const initialFormState = {
   additionalNotes: "",
   imageSize: "1024x1024",
   imageQuality: "standard",
+  imageProvider: "dalle3",
 };
 
 function App() {
@@ -267,6 +268,25 @@ function App() {
     setStatus(null);
     try {
       const selectedContentType = form.contentType;
+      // Always send user_profile with all UI fields and override
+      const user_profile = {
+        override: overrideEnabled,
+        ui_tone: form.tone,
+        ui_keywords: form.keywords,
+        ui_target_words: form.targetWords,
+        ui_target_audience: form.targetAudience,
+        ui_topic: form.query,
+        ui_key_findings: undefined,
+        ui_research_summary: undefined,
+        ui_sources: form.includeSources,
+        ui_user_query: form.query,
+        ui_image_size: form.imageSize,
+        ui_image_quality: form.imageQuality,
+        ui_image_provider: form.imageProvider,
+        ui_max_results: undefined,
+        ui_key_points: undefined,
+        ui_enable_seo: form.enableSeo,
+      };
       const payload: GenerateRequest = {
         session_id: sessionId || undefined,
         user_id: userEmail,
@@ -285,7 +305,9 @@ function App() {
         image_size: selectedContentType === "image" ? form.imageSize : undefined,
         image_quality:
           selectedContentType === "image" ? form.imageQuality : undefined,
+        image_provider: form.imageProvider || "dalle3",
         override: overrideEnabled,
+        user_profile: user_profile,
       };
 
       const response = await generateContent(payload);
@@ -574,6 +596,21 @@ function App() {
                     >
                       <option value="standard">standard</option>
                       <option value="hd">hd</option>
+                    </select>
+                  </label>
+                  <label className="field">
+                    <span>Image Provider</span>
+                    <select
+                      value={form.imageProvider}
+                      onChange={(event) =>
+                        setForm((prev) => ({
+                          ...prev,
+                          imageProvider: event.target.value,
+                        }))
+                      }
+                    >
+                      <option value="dalle3">DALL·E 3</option>
+                      <option value="stable-diffusion">Stable Diffusion</option>
                     </select>
                   </label>
                 </div>

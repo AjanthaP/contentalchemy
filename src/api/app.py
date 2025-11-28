@@ -74,7 +74,7 @@ async def generate_content(payload: schemas.GenerateRequest):
     result = run_workflow(
         query=enriched_query,
         content_type=payload.content_type,
-        user_profile=None,  # or pass actual user_profile if available
+        user_profile=getattr(payload, "user_profile", None),
         session_id=payload.session_id
     )
     final_content = result.get("final_content", "")

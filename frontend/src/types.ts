@@ -36,7 +36,9 @@ export interface GenerateRequest {
   additional_notes?: string;
   image_size?: string;
   image_quality?: string;
-  override: boolean
+  override: boolean;
+  image_provider?: string;
+  user_profile?: any;
 }
 
 export interface GenerateResponse {

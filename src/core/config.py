@@ -15,6 +15,8 @@ class Settings(BaseSettings):
     langsmith_api_key: Optional[str] = None
     openai_model: str = "gpt-4-turbo-preview"
     
+    #Hugging Face API Key
+    hf_api_key: Optional[str] = None
     # Optional API Keys
     perplexity_api_key: Optional[str] = None
     anthropic_api_key: Optional[str] = None
