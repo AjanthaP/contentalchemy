@@ -15,6 +15,13 @@ import os
 from dotenv import load_dotenv
 
 load_dotenv()
+# REMOVE proxy environment variables that cause conflicts
+proxy_vars = ['HTTP_PROXY', 'HTTPS_PROXY', 'ALL_PROXY', 'http_proxy', 'https_proxy']
+for var in proxy_vars:
+    if var in os.environ:
+        del os.environ[var]
+        print(f"Removed {var} to prevent OpenAI conflicts")
+        
 app = FastAPI(title="ContentAlchemAI", version=settings.app_version)
 app.include_router(linkedin_router, prefix="/api")
 
