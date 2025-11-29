@@ -12,7 +12,9 @@ from src.core.config import settings
 from src.optimization.content_validator import ContentValidator
 from src.workflow.langgraph_flow import generate_content as run_workflow
 import os
+from dotenv import load_dotenv
 
+load_dotenv()
 app = FastAPI(title="ContentAlchemAI", version=settings.app_version)
 app.include_router(linkedin_router, prefix="/api")
 

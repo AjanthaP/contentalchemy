@@ -12,6 +12,7 @@ class Settings(BaseSettings):
     # API Configuration
     openai_api_key: Optional[str] = None
     serp_api_key: Optional[str] = None
+    langchain_project: Optional[str] = None
     langsmith_api_key: Optional[str] = None
     openai_model: str = "gpt-4-turbo-preview"
     
