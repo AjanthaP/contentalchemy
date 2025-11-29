@@ -1,3 +1,4 @@
+# Version 0.1.1
 # Dockerfile for FastAPI backend (Railway deployment)
 FROM python:3.10-slim
 
