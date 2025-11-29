@@ -1,8 +1,8 @@
 
 # Core AI/ML
-langchain==0.2.12
-langchain-openai==0.1.9
-langgraph==0.2.2
+langchain>=0.1.14
+langchain-openai>=0.1.9
+langgraph>=0.2.2
 openai==1.52.0
 
 
@@ -14,14 +14,13 @@ python-dotenv==1.0.1
 
 
 # UI
-streamlit==1.30.0
 plotly==5.22.0
 
-
+    
 # Data Processing
-pydantic==2.7.1
-pydantic-settings==2.2.1
-pandas==2.2.2
+pydantic>=1.10.15
+pydantic-settings>=2.0.0
+pandas>=2.2.2
 numpy==1.26.4
 
 

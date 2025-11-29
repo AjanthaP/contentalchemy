@@ -109,7 +109,7 @@ def prepare_initial_state(query: str, content_type: str, user_profile: dict = No
         "keywords": "",
         "target_audience": "general",
         "enable_seo": True,
-        "image_provider": "stable-diffusion",
+        "image_provider": "dalle3",
         "image_size": "1024x1024",
         "image_quality": "standard",
         "max_results": 10,
@@ -204,7 +204,7 @@ def create_content_workflow():
         provider = (
             state.get("image_provider") or 
             state.get("ui_image_provider") or 
-            "stable-diffusion"
+            "dalle3"
         )
         
         print(f"[DEBUG] [Image Node] Using provider: {provider}")
