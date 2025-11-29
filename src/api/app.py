@@ -60,6 +60,7 @@ async def generate_content(payload: schemas.GenerateRequest):
         "target_audience": payload.target_audience,
         "keywords": payload.keywords,
         "additional_notes": payload.additional_notes,
+        "override": payload.override,
     }
     conversation_manager.add_message("user", payload.user_query, metadata)
 
@@ -77,6 +78,14 @@ async def generate_content(payload: schemas.GenerateRequest):
         user_profile=getattr(payload, "user_profile", None),
         session_id=payload.session_id
     )
+    # Patch: handle Stable Diffusion base64 output
+    image_url = result.get("image_url")
+    if not image_url and result.get("image_base64"):
+        image_url = f"data:image/png;base64,{result['image_base64']}"
+        result["image_url"] = image_url
+    if not image_url and not result.get("image_base64") and result.get("image_object"):
+        image_url = f"data:image/png;base64,{result['image_object']}"
+        result["image_url"] = image_url
     final_content = result.get("final_content", "")
     conversation_manager.add_message("assistant", final_content, {"result": result})
 
@@ -106,6 +115,7 @@ async def generate_content(payload: schemas.GenerateRequest):
         metadata=result.get("metadata", {}),
         analysis=validator,
         image_url=result.get("image_url"),
+        image_base64=result.get("image_base64"),
         image_prompt=result.get("image_prompt"),
         sources=result.get("research_report", {}).get("sources", []),
         raw_result=result,

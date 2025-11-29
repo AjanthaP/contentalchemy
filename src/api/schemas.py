@@ -31,6 +31,10 @@ class GenerateRequest(BaseModel):
     image_size: Optional[str] = None
     image_quality: Optional[str] = None
     image_provider: Optional[str] = None
+    
+    # ✅ ADD THESE TWO FIELDS
+    override: bool = False
+    user_profile: Optional[Dict[str, Any]] = None
 
 
 class ProfileResponse(BaseModel):
@@ -66,6 +70,8 @@ class GenerateResponse(BaseModel):
     analysis: Optional[ValidationResult] = None
     image_url: Optional[str] = None
     image_prompt: Optional[str] = None
+    image_base64: Optional[str] = None
+    image_object: Optional[str] = None
     sources: List[Dict[str, Any]] = Field(default_factory=list)
     raw_result: Dict[str, Any] = Field(default_factory=dict)
     conversation: Optional[ConversationResponse] = None

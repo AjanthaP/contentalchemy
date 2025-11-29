@@ -50,6 +50,8 @@ export interface GenerateResponse {
   analysis?: ValidationResult | null;
   image_url?: string | null;
   image_prompt?: string | null;
+  image_base64?: string | null;
+  image_object?: string | null;
   sources: Record<string, unknown>[];
   raw_result: Record<string, unknown>;
   conversation?: ConversationResponse | null;

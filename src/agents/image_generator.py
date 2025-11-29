@@ -144,7 +144,7 @@ class StableDiffusionGenerator(ImageGeneratorBase):
                 "success": True,
                 "image_base64": img_str,
                 "image_object": image,
-                "prompt": prompt,
+                "revised_prompt": prompt,
                 "model": self.model,
                 "cost": self.get_cost_per_image()
             }

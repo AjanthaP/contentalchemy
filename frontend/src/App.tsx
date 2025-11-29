@@ -747,9 +747,10 @@ function App() {
 
               {activeTab === "content" && (
                 <div className="content-view">
-                  {isImageResult && result.image_url ? (
+                  {isImageResult && (result.image_url || result.image_base64 || result.image_object) ? (
                     <div className="image-block">
-                      <img src={result.image_url} alt="Generated" />
+                      <img src={result.image_url || (result.image_object ? `data:image/png;base64,${result.image_object}` : "")}
+                        alt="Generated" />
                       {result.image_prompt && (
                         <pre>{result.image_prompt}</pre>
                       )}

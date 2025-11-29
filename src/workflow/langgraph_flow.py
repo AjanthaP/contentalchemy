@@ -1,4 +1,4 @@
-from typing import TypedDict, Annotated, Literal
+from typing import TypedDict, Annotated, Literal, Optional
 from langgraph.graph import StateGraph, END
 from langchain_openai import ChatOpenAI
 import operator
@@ -15,56 +15,160 @@ from src.core.config import settings
 # Enable LangSmith tracing
 from langsmith import Client
 
-class ContentState(TypedDict):
+class ContentState(TypedDict, total=False):
     """State for content generation workflow"""
-    # Input
+    # Core Input
     user_query: str
-    override: bool  # Ensure override is always present
+    override: bool
     requested_content_type: str
+    session_id: Optional[str]
+    
+    # User Profile Data
     user_profile: dict
-    session_id: str
+    
+    # Content Settings
     tone: str
     target_words: int
     keywords: str
     target_audience: str
-    topic: str
-    key_findings: list[str]
-    research_summary: str
-    sources: list[str]
     enable_seo: bool
+    
+    # Topic & Research
+    topic: str
+    key_findings: list
+    research_summary: str
+    sources: list
     max_results: int
-    key_points: list[str]
+    key_points: list
+    
+    # Image Settings
     image_provider: str
     image_size: str
     image_quality: str
-
+    
+    # UI Override Fields (prefixed with ui_)
+    ui_tone: str
+    ui_keywords: str
+    ui_target_words: int
+    ui_target_audience: str
+    ui_topic: str
+    ui_key_findings: list
+    ui_research_summary: str
+    ui_sources: list
+    ui_user_query: str
+    ui_image_size: str
+    ui_image_quality: str
+    ui_image_provider: str
+    ui_max_results: int
+    ui_key_points: list
+    ui_enable_seo: bool
+    
     # Query Analysis
     query_analysis: dict
     intent: str
-    topic: str
-    keywords: list[str]
     requires_research: bool
     
-    # Research
+    # Research Results
     research_report: dict
-    research_summary: str
-    key_findings: list[str]
     
-    # Content Generation
+    # Content Generation Results
     blog_content: str
     linkedin_content: str
     image_url: str
     image_prompt: str
     formatted_content: str
+    image_base64: str
+    image_object: str
     
-    # Output
+    # Final Output
     final_content: str
     content_type: str
     metadata: dict
     
-    # State management
+    # State Management
     messages: Annotated[list, operator.add]
     error: str
+
+
+def prepare_initial_state(query: str, content_type: str, user_profile: dict = None, session_id: str = None) -> dict:
+    """Prepare initial state with proper field mapping"""
+    
+    # Default values
+    fallback_tone = os.getenv("DEFAULT_TONE", "professional")
+    fallback_target_words = int(os.getenv("DEFAULT_TARGET_WORDS", "1200"))
+    
+    # Initialize base state
+    state = {
+        "user_query": query,
+        "messages": [],
+        "requested_content_type": content_type,
+        "session_id": session_id,
+        "override": False,  # Default to False
+        "tone": fallback_tone,
+        "target_words": fallback_target_words,
+        "keywords": "",
+        "target_audience": "general",
+        "enable_seo": True,
+        "image_provider": "stable-diffusion",
+        "image_size": "1024x1024",
+        "image_quality": "standard",
+        "max_results": 10,
+        "user_profile": user_profile or {}
+    }
+    
+    # If user_profile exists, extract and map fields
+    if user_profile:
+        # Extract override flag FIRST
+        state["override"] = bool(user_profile.get("override", False))
+        
+        print(f"[DEBUG] Override extracted from user_profile: {state['override']}")
+        
+        # Map ALL UI fields to both ui_* and main keys
+        ui_field_mapping = {
+            "ui_tone": ("tone", str),
+            "ui_keywords": ("keywords", str),
+            "ui_target_words": ("target_words", int),
+            "ui_target_audience": ("target_audience", str),
+            "ui_topic": ("topic", str),
+            "ui_key_findings": ("key_findings", list),
+            "ui_research_summary": ("research_summary", str),
+            "ui_sources": ("sources", list),
+            "ui_user_query": ("user_query", str),
+            "ui_image_size": ("image_size", str),
+            "ui_image_quality": ("image_quality", str),
+            "ui_image_provider": ("image_provider", str),
+            "ui_max_results": ("max_results", int),
+            "ui_key_points": ("key_points", list),
+            "ui_enable_seo": ("enable_seo", bool)
+        }
+        
+        for ui_key, (main_key, expected_type) in ui_field_mapping.items():
+            if ui_key in user_profile:
+                value = user_profile[ui_key]
+                # Type validation
+                try:
+                    if expected_type == int and not isinstance(value, int):
+                        value = int(value) if value else 0
+                    elif expected_type == bool:
+                        value = bool(value)
+                    elif expected_type == list and not isinstance(value, list):
+                        value = [value] if value else []
+                    elif expected_type == str and not isinstance(value, str):
+                        value = str(value) if value else ""
+                    
+                    # Set both ui_* and main key
+                    state[ui_key] = value
+                    state[main_key] = value
+                    print(f"[DEBUG] Mapped {ui_key} -> {main_key}: {value}")
+                except (ValueError, TypeError) as e:
+                    print(f"[WARNING] Failed to map {ui_key}: {e}")
+    
+    print(f"[DEBUG] Final prepared state keys: {list(state.keys())}")
+    print(f"[DEBUG] Override in final state: {state.get('override')}")
+    print(f"[DEBUG] Image provider in final state: {state.get('image_provider')}")
+    
+    return state
+
 
 def create_content_workflow():
     """Create LangGraph workflow for content generation with LangSmith tracing enabled"""
@@ -73,9 +177,9 @@ def create_content_workflow():
     langsmith_api_key = os.getenv("LANGSMITH_API_KEY", getattr(settings, "langsmith_api_key", None))
     langsmith_project = os.getenv("LANGSMITH_PROJECT", "ContentBlitz")
     if not langsmith_api_key:
-        raise EnvironmentError("LANGSMITH_API_KEY is not set. Please add your LangSmith PAT to the environment.")
+        print("[WARNING] LANGSMITH_API_KEY is not set. Tracing may not work.")
 
-    # Initialize LLM with LangSmith tracing (remove unsupported 'project' argument)
+    # Initialize LLM
     llm = ChatOpenAI(
         model=settings.openai_model,
         api_key=settings.openai_api_key,
@@ -91,44 +195,68 @@ def create_content_workflow():
     content_strategist = ContentStrategistAgent(llm)
 
     def image_node(state):
-        print(f"[DEBUG] [Image Node] State override: {state.get('override', None)}")
-        provider = state.get("image_provider") or state.get("ui_image_provider") or "stable-diffusion"
-        print(f"[Image Node] Using provider: {provider}")
-        agent = ImageGeneratorAgent(provider, llm, settings.openai_api_key, settings.hf_api_key)
-        return agent(state)
+        """Image generation node with proper provider handling"""
+        print(f"[DEBUG] [Image Node] Full state keys: {list(state.keys())}")
+        print(f"[DEBUG] [Image Node] Override: {state.get('override', None)}")
+        print(f"[DEBUG] [Image Node] Image provider from state: {state.get('image_provider')}")
+        print(f"[DEBUG] [Image Node] UI Image provider from state: {state.get('ui_image_provider')}")
+        
+        # Get provider with proper fallback chain
+        provider = (
+            state.get("image_provider") or 
+            state.get("ui_image_provider") or 
+            "stable-diffusion"
+        )
+        
+        print(f"[DEBUG] [Image Node] Using provider: {provider}")
+        
+        # Create agent and call it
+        agent = ImageGeneratorAgent(
+            provider=provider,
+            llm=llm,
+            openai_api_key=settings.openai_api_key,
+            hf_api_key=settings.hf_api_key
+        )
+        
+        result = agent(state)
+        print(f"[DEBUG] [Image Node] Result: {result}")
+        return result
 
-    # Router function
+    # Router function with improved logging
     def route_content(state: ContentState) -> str:
-        print("[DEBUG] [Router] State:", state)
+        """Route to appropriate content generation node"""
+        print(f"[DEBUG] [Router] Full state keys: {list(state.keys())}")
+        print(f"[DEBUG] [Router] Override: {state.get('override', False)}")
+        
         override = state.get("override", False)
-        print(f"[DEBUG] [Router] override: {override}")
-        if override:
-            requested_type = state.get("requested_content_type")
-            print(f"[DEBUG] [Router] Override enabled, requested_content_type: {requested_type}")
-            return requested_type if requested_type else "analyze_query"
-
         requested_type = state.get("requested_content_type")
-        if requested_type:
-            print(f"[DEBUG] [Router] requested_content_type: {requested_type}")
+        
+        print(f"[DEBUG] [Router] Requested type: {requested_type}")
+        
+        # If override is enabled, use requested_content_type directly
+        if override and requested_type:
+            print(f"[DEBUG] [Router] Override enabled, routing to: {requested_type}")
             return requested_type
-
-        user_query = state.get("user_query", "").lower()
-        for keyword in ["research", "blog", "linkedin", "image", "strategy"]:
-            if keyword in user_query:
-                print(f"[DEBUG] [Router] keyword match: {keyword}")
-                return keyword
-
-        print("[DEBUG] [Router] fallback to requested_content_type or 'research'")
-        return state.get("requested_content_type", "research")
+        
+        # If explicit content type is requested
+        if requested_type:
+            print(f"[DEBUG] [Router] Routing to requested type: {requested_type}")
+            return requested_type
+        
+        # Fallback to query analysis
+        intent = state.get("query_analysis", {}).get("intent", "research")
+        print(f"[DEBUG] [Router] Routing based on intent: {intent}")
+        return intent
 
     # Create workflow
     workflow = StateGraph(ContentState)
 
-    # Add nodes with logging after execution
+    # Add nodes with logging wrapper
     def log_wrapper(agent, name):
         def wrapped(state):
+            print(f"[DEBUG] [{name}] Input state keys: {list(state.keys())}")
             result = agent(state)
-            print(f"[Agent Output] {name}:", result)
+            print(f"[DEBUG] [{name}] Output: {result}")
             return result
         return wrapped
 
@@ -147,7 +275,6 @@ def create_content_workflow():
         "analyze_query",
         route_content,
         {
-            "analyze_query": "analyze_query",  # If override, stay in query_handler
             "research": "research",
             "blog": "blog",
             "linkedin": "linkedin",
@@ -159,7 +286,7 @@ def create_content_workflow():
     # Research can lead to other content types
     workflow.add_conditional_edges(
         "research",
-        lambda state: state.get("query_analysis", {}).get("intent", "strategy"),
+        lambda state: state.get("requested_content_type", "strategy"),
         {
             "blog": "blog",
             "linkedin": "linkedin",
@@ -177,77 +304,59 @@ def create_content_workflow():
 
     return workflow.compile()
 
+
 def generate_content(query: str, content_type: str, user_profile: dict = None, session_id: str = None):
     """Generate content from user query"""
+    
+    # Prepare initial state with proper mapping
+    initial_state = prepare_initial_state(query, content_type, user_profile, session_id)
+    
+    print("[DEBUG] ========== Starting Content Generation ==========")
+    print(f"[DEBUG] Query: {query}")
+    print(f"[DEBUG] Content Type: {content_type}")
+    print(f"[DEBUG] Override: {initial_state.get('override')}")
+    print(f"[DEBUG] Image Provider: {initial_state.get('image_provider')}")
+    
+    # Create and run workflow
     workflow = create_content_workflow()
     
-    # Fallbacks for tone and target_words
-    fallback_tone = os.getenv("DEFAULT_TONE", "professional")
-    fallback_target_words = int(os.getenv("DEFAULT_TARGET_WORDS", "1200"))
-
-    # Always set user_profile as a dict
-    if user_profile is None:
-        user_profile = {}
-    initial_state = {
-        "user_query": query,
-        "messages": [],
-        "requested_content_type": content_type,
-        "user_profile": user_profile,
-        "session_id": session_id,
-        "tone": fallback_tone,
-        "target_words": fallback_target_words
-    }
-    print("[DEBUG] Initial state before UI mapping:", initial_state)
-    # Always set override from user_profile or directly from payload
-    initial_state["override"] = bool(user_profile.get("override", False))
-    print(f"[DEBUG] After setting override: {initial_state['override']}")
-    # Map UI fields to both ui_* and main keys for workflow compatibility
-    ui_to_main = {
-        "ui_tone": "tone",
-        "ui_keywords": "keywords",
-        "ui_target_words": "target_words",
-        "ui_target_audience": "target_audience",
-        "ui_topic": "topic",
-        "ui_key_findings": "key_findings",
-        "ui_research_summary": "research_summary",
-        "ui_sources": "sources",
-        "ui_user_query": "user_query",
-        "ui_image_size": "image_size",
-        "ui_image_quality": "image_quality",
-        "ui_image_provider": "image_provider",
-        "ui_max_results": "max_results",
-        "ui_key_points": "key_points",
-        "ui_enable_seo": "enable_seo"
-    }
-    for ui_key, main_key in ui_to_main.items():
-        if ui_key in user_profile:
-            initial_state[ui_key] = user_profile[ui_key]
-            initial_state[main_key] = user_profile[ui_key]
-    print("[DEBUG] Initial state after UI mapping:", initial_state)
     try:
-        print("[DEBUG] State before workflow.invoke:", initial_state)
+        print("[DEBUG] Invoking workflow...")
         result = workflow.invoke(initial_state)
-        content_type = result.get("content_type", "research")
-        if content_type == "blog":
+        
+        # Extract final content based on content type
+        content_type_result = result.get("content_type", content_type)
+        
+        if content_type_result == "blog":
             final_content = result.get("blog_content", "")
-        elif content_type == "linkedin":
+        elif content_type_result == "linkedin":
             final_content = result.get("linkedin_content", "")
-        elif content_type == "image":
+        elif content_type_result == "image":
             final_content = result.get("image_url", "")
-        elif content_type == "research":
+        elif content_type_result == "research":
             final_content = result.get("research_summary", "")
         else:
             final_content = result.get("formatted_content", "")
+        
         result["final_content"] = final_content
-        # Restore word count meter
+        
+        # Calculate word count
         if isinstance(final_content, str):
             result["word_count"] = len(final_content.split())
         else:
             result["word_count"] = 0
+        
+        print("[DEBUG] ========== Content Generation Complete ==========")
         return result
+        
     except Exception as e:
+        print(f"[ERROR] Content generation failed: {e}")
+        import traceback
+        traceback.print_exc()
+        
         return {
             "error": str(e),
             "final_content": "Error generating content. Please try again.",
-            "content_type": "error"
+            "content_type": "error",
+            "word_count": 0
         }
