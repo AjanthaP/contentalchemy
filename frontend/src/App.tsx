@@ -145,8 +145,14 @@ function App() {
       setLinkedinToken("");
       setLinkedinProfile(null);
       localStorage.removeItem("contentalchemy.linkedinToken");
+       // Debug: verify it's actually gone
+      localStorage.removeItem("contentalchemy.linkedinProfile"); // Also clear profile if stored
+          
+      console.log("Token after logout:", localStorage.getItem("contentalchemy.linkedinToken")); // Should be null
+      console.log("Profile after logout:", localStorage.getItem("contentalchemy.linkedinProfile")); // Should be null
       // Optionally reload page to clear query params/state
       // window.location.reload();
+      window.location.href = "/login";
     };
 
   // const currentContent = useMemo(

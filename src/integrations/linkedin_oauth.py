@@ -1,7 +1,7 @@
 from fastapi import Header
 import requests
 from fastapi import APIRouter, Request, HTTPException
-from fastapi.responses import RedirectResponse, HTMLResponse
+from fastapi.responses import JSONResponse, RedirectResponse, HTMLResponse
 from src.core.config import settings
 
 LINKEDIN_CLIENT_ID = settings.linkedin_client_id
@@ -103,6 +103,7 @@ async def linkedin_post(request: Request, authorization: str = Header(None)):
 
     headers = {
         "Authorization": f"Bearer {token}",
+        "Cache-Control": "no-cache, no-store, must-revalidate",
         "Content-Type": "application/json",
         "X-Restli-Protocol-Version": "2.0.0"
     }
@@ -127,3 +128,30 @@ def linkedin_profile(authorization: str = Header(None)):
     # Log error details for debugging
     print("LinkedIn profile fetch failed:", profile_resp.status_code, profile_resp.text)
     raise HTTPException(status_code=400, detail=f"Failed to fetch LinkedIn profile: {profile_resp.text}")
+
+# @router.post("/linkedin/logout")
+# def linkedin_logout(request: Request):
+#     """
+#     Logout endpoint that clears LinkedIn session and local session
+#     """
+#     # Create a response object
+#     response = JSONResponse({
+#         "message": "Logged out successfully",
+#         "logout_url": ""  # Will be set below
+#     })
+#     # Clear any auth cookies
+#     response.delete_cookie("linkedin_token")
+#     response.delete_cookie("session")
+#     response.delete_cookie("user_session")
+    
+#     # LinkedIn logout URL with post_logout_redirect_uri
+#     # Make sure LINKEDIN_LOGOUT_URL is defined in your settings or above
+#     logout_params = {
+#         "post_logout_redirect_uri": LINKEDIN_REDIRECT_URI  # or your frontend URL
+#     }
+#     logout_url = f"{getattr(settings, 'linkedin_logout_url', 'https://www.linkedin.com/m/logout/')}?" + "&".join([f"{k}={v}" for k, v in logout_params.items()])
+#     response.body = response.render({
+#         "message": "Logged out successfully",
+#         "logout_url": logout_url  # Send to frontend to redirect if needed
+#     })
+#     return response
