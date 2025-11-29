@@ -11,13 +11,17 @@ from src.api.dependencies import get_conversation_manager, get_profile_manager
 from src.core.config import settings
 from src.optimization.content_validator import ContentValidator
 from src.workflow.langgraph_flow import generate_content as run_workflow
+import os
 
 app = FastAPI(title="ContentAlchemAI", version=settings.app_version)
 app.include_router(linkedin_router, prefix="/api")
 
+allowed_origins = os.getenv("ALLOWED_ORIGINS", "http://localhost:5173,http://127.0.0.1:5173,https://contentalchemy.vercel.app")
+allowed_origins_list = [origin.strip() for origin in allowed_origins.split(",")]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173","https://contentalchemy-production.up.railway.app"],
+    allow_origins=allowed_origins_list,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
