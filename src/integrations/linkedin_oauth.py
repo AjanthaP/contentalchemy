@@ -49,7 +49,8 @@ def linkedin_callback(request: Request):
     #         profile = profile_resp.json()
     if token:
         # Redirect to frontend with token in URL
-        frontend_url = "http://localhost:5173/?linkedin_token=" + token
+        frontend_base_url = getattr(settings, "frontend_base_url", None) or "http://localhost:5173"
+        frontend_url = f"{frontend_base_url}/?linkedin_token={token}"
         return RedirectResponse(frontend_url)
     return HTMLResponse("<p>LinkedIn authentication failed.</p>")
 

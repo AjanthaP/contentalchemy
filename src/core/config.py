@@ -61,6 +61,8 @@ class Settings(BaseSettings):
     linkedin_client_secret: Optional[str] = None
     linkedin_redirect_uri: Optional[str] = None
     
+    # Frontend Base URL
+    frontend_base_url: Optional[str] = "http://localhost:5173"
     class Config:
         env_file = ".env"
         case_sensitive = False
