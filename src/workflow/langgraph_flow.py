@@ -175,7 +175,6 @@ def create_content_workflow():
 
     # Verify LangSmith environment variable usage
     langsmith_api_key = os.getenv("LANGSMITH_API_KEY", getattr(settings, "langsmith_api_key", None))
-    langsmith_project = os.getenv("LANGSMITH_PROJECT", "ContentBlitz")
     if not langsmith_api_key:
         print("[WARNING] LANGSMITH_API_KEY is not set. Tracing may not work.")
 
