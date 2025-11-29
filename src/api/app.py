@@ -13,6 +13,9 @@ from src.optimization.content_validator import ContentValidator
 from src.workflow.langgraph_flow import generate_content as run_workflow
 import os
 
+import sys
+sys.path.insert(0, '/app')
+
 # Run debug on startup
 try:
     print("Running debug_openai.py...")
