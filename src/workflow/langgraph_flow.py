@@ -333,7 +333,9 @@ def generate_content(query: str, content_type: str, user_profile: dict = None, s
         elif content_type_result == "image":
             final_content = result.get("image_url", "")
         elif content_type_result == "research":
-            final_content = result.get("research_summary", "")
+            # reseach summary and key findings and insights
+            research_report = result.get("research_report", {})
+            final_content = f"{research_report.get('summary', '')}\n\nKey Findings:\n- " + "\n- ".join(research_report.get("key_findings", [])) + "\n\nInsights:\n- " + "\n- ".join(research_report.get("insights", []))
         else:
             final_content = result.get("formatted_content", "")
         

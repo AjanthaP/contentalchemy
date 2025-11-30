@@ -55,12 +55,12 @@ class ContentStrategistAgent:
                        key_findings: List[str], sources: List[Dict]) -> str:
         """Format research into structured report"""
         try:
-            # Format sources
+            # Filter sources to only dicts
+            sources = [s for s in sources if isinstance(s, dict)]
             sources_text = "\n".join([
                 f"- {s.get('title', 'Unknown')}: {s.get('url', 'N/A')}"
                 for s in sources[:10]
             ])
-            
             chain = self.prompt | self.llm
             response = chain.invoke({
                 "topic": topic,
@@ -68,16 +68,16 @@ class ContentStrategistAgent:
                 "key_findings": "\n- ".join(key_findings),
                 "sources": sources_text
             })
-            
             return response.content.strip()
-            
         except Exception as e:
             print(f"Error formatting research: {e}")
-            return self._fallback_report(topic, research_summary, key_findings, sources)
+            # Also filter sources in fallback
+            return self._fallback_report(topic, research_summary, key_findings, [s for s in sources if isinstance(s, dict)])
     
     def _fallback_report(self, topic: str, summary: str, 
                         findings: List[str], sources: List[Dict]) -> str:
         """Fallback report template"""
+        sources = [s for s in sources if isinstance(s, dict)]
         sources_list = "\n".join([
             f"- [{s.get('title', 'Source')}]({s.get('url', '#')})"
             for s in sources[:10]
