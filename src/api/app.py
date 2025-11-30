@@ -13,15 +13,6 @@ from src.optimization.content_validator import ContentValidator
 from src.workflow.langgraph_flow import generate_content as run_workflow
 import os
 
-import sys
-sys.path.insert(0, '/app')
-
-# Run debug on startup
-try:
-    print("Running debug_openai.py...")
-    exec(open('debug_openai.py', encoding='utf-8').read())
-except Exception as e:
-    print(f"Debug script error: {e}")
 
 app = FastAPI(title="ContentAlchemAI", version=settings.app_version)
 app.include_router(linkedin_router, prefix="/api")
