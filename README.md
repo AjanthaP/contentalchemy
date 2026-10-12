@@ -1,6 +1,6 @@
 # ContentAlchemy ✨
 
-AI-Powered Multi-Agent Content Marketing Assistant
+AI-Powered Multi-Agent Content Marketing Assistant -
 
 ## Overview
 
