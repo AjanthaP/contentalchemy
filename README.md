@@ -23,7 +23,6 @@ ContentAlchemy is a production-ready multi-agent system that generates research 
 - **Framework**: LangChain + LangGraph
 - **Research**: SERP API
 - **Images**: DALL-E 3
-- **UI**: Streamlit
 - **Python**: 3.10+
 
 ## Project Structure
