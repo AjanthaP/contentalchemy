@@ -32,7 +32,7 @@
 ### 3. All 6 Core AI Agents ✓
 - ✅ **Query Handler Agent** (`query_handler.py`)
   - Routes user requests to specialized agents
-  - Intent detection (research, blog, linkedin, image, strategy)
+  - Intent detection (research, blog, LinkedIn, image, strategy)
   - Keyword extraction and analysis
   
 - ✅ **Deep Research Agent** (`research_agent.py`)
