@@ -112,7 +112,6 @@ class StableDiffusionGenerator(ImageGeneratorBase):
             guidance_scale: Prompt adherence (1-20)
         """
 
-        print("StableDiffusionGenerator API Key:", self.api_key)
         headers = {
             "Authorization": f"Bearer {self.api_key}",
             "Content-Type": "application/json"

@@ -183,7 +183,7 @@ def create_content_workflow():
         model=settings.openai_model,
         api_key=settings.openai_api_key,
         temperature=settings.temperature,
-        max_tokens=settings.max_tokens
+        model_kwargs={"max_completion_tokens": settings.max_tokens}
     )
 
     # Initialize agents
