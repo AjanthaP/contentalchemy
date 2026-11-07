@@ -91,7 +91,10 @@ async def generate_content(payload: schemas.GenerateRequest):
     if not image_url and not result.get("image_base64") and result.get("image_object"):
         image_url = f"data:image/png;base64,{result['image_object']}"
         result["image_url"] = image_url
-    final_content = result.get("final_content", "")
+    final_content = result.get("final_content")
+    if payload.content_type == "image" and not final_content:
+        final_content = result.get("image_prompt") or result.get("optimized_prompt") or ""
+        result["final_content"] = final_content
     conversation_manager.add_message("assistant", final_content, {"result": result})
 
     validator = None
