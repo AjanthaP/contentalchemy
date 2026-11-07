@@ -23,69 +23,68 @@ class ImageGeneratorBase(ABC):
         pass
     
     @abstractmethod
-    def get_cost_per_image(self) -> float:
+    def get_cost_per_image(self) -> Optional[float]:
         """Return cost per image in USD"""
         pass
 
 
 # ============================================================================
-# DALL-E 3 IMPLEMENTATION
+# OpenAI image generation
 # ============================================================================
 
-class DallE3Generator(ImageGeneratorBase):
-    """DALL-E 3 via OpenAI API"""
+class OpenAIImageGenerator(ImageGeneratorBase):
+    """Generate images using OpenAI's Images API."""
     
-    def __init__(self, api_key: str):
+    def __init__(self, api_key: str, model: str):
         self.api_key = api_key
+        self.model = model
         self.endpoint = "https://api.openai.com/v1/images/generations"
     
-    def generate(self, prompt: str, size: str = "1024x1024", 
-                 quality: str = "standard", style: str = "vivid") -> Dict:
-        """
-        Generate image using DALL-E 3
-        
-        Args:
-            prompt: Image description
-            size: "1024x1024", "1024x1792", "1792x1024"
-            quality: "standard" or "hd"
-            style: "vivid" or "natural"
-        """
+    def generate(self, prompt: str, size: str = "1024x1024",
+                 quality: str = "standard", **kwargs) -> Dict:
         headers = {
             "Authorization": f"Bearer {self.api_key}",
             "Content-Type": "application/json"
         }
         
         payload = {
-            "model": "dall-e-3",
+            "model": self.model,
             "prompt": prompt,
             "n": 1,
             "size": size,
-            "quality": quality,
-            "style": style
+            "quality": {"standard": "medium", "hd": "high"}.get(quality, quality)
         }
         
         try:
             response = requests.post(self.endpoint, headers=headers, json=payload)
             response.raise_for_status()
             data = response.json()
+            image_data = data["data"][0]
             
             return {
                 "success": True,
-                "image_url": data["data"][0]["url"],
-                "revised_prompt": data["data"][0].get("revised_prompt", prompt),
-                "model": "dall-e-3",
-                "cost": self.get_cost_per_image()
+                "image_url": image_data.get("url"),
+                "image_base64": image_data.get("b64_json"),
+                "revised_prompt": image_data.get("revised_prompt", prompt),
+                "model": self.model
+            }
+        except requests.HTTPError as e:
+            response_text = e.response.text if e.response is not None else str(e)
+            status_code = e.response.status_code if e.response is not None else "unknown"
+            return {
+                "success": False,
+                "error": f"OpenAI image API returned HTTP {status_code}: {response_text}",
+                "model": self.model
             }
         except Exception as e:
             return {
                 "success": False,
                 "error": str(e),
-                "model": "dall-e-3"
+                "model": self.model
             }
     
-    def get_cost_per_image(self) -> float:
-        """DALL-E 3 pricing (as of 2024)"""
-        return 0.040  # $0.040 per standard 1024x1024 image
+    def get_cost_per_image(self) -> Optional[float]:
+        return None
 
 
 # ============================================================================
@@ -160,21 +159,21 @@ class StableDiffusionGenerator(ImageGeneratorBase):
 
 
 class ImageGeneratorAgent:
-    """Generates images using DALL-E 3 with prompt optimization"""
+    """Generates images using OpenAI image models with prompt optimization."""
      
     SUPPORTED_MODELS = {
-        "dalle3": DallE3Generator,
+        "dalle3": OpenAIImageGenerator,
         "stable-diffusion": StableDiffusionGenerator,
     }
 
-    def __init__(self, provider:Literal["dalle3", "stable-diffusion"] = "dalle3", llm=None, openai_api_key: str = None, hf_api_key: str = None):
+    def __init__(self, provider:Literal["dalle3", "stable-diffusion"] = "dalle3", llm=None, openai_api_key: str = None, hf_api_key: str = None, openai_image_model: str = "gpt-image-2.5-flare"):
         self.provider = provider
 
         # Initialize the selected generator
         if provider == "dalle3":
             if not openai_api_key:
-                raise ValueError("OpenAI API key required for DALL-E 3")
-            self.generator = DallE3Generator(openai_api_key)
+                raise ValueError("OpenAI API key required for OpenAI image generation")
+            self.generator = OpenAIImageGenerator(openai_api_key, openai_image_model)
         
         elif provider in ["stable-diffusion"]:
             if not hf_api_key:
@@ -186,12 +185,12 @@ class ImageGeneratorAgent:
         # self.client = OpenAI(api_key=self.openai_api_key)
         
         self.prompt_optimizer = ChatPromptTemplate.from_template("""
-        You are a DALL-E 3 prompt engineering expert.
+        You are an OpenAI image prompt engineering expert.
         
         User Request: {user_request}
         Context: {context}
         
-        Create an optimized DALL-E 3 prompt that:
+        Create an optimized prompt for OpenAI image generation that:
         
         1. **Style & Medium**: Specify artistic style (e.g., "digital art", "photorealistic", "minimalist illustration")
         2. **Subject**: Clear description of main subject
@@ -204,7 +203,7 @@ class ImageGeneratorAgent:
         - Use descriptive adjectives
         - Specify composition (e.g., "centered", "wide angle")
         - Include lighting details (e.g., "soft natural lighting")
-        - Avoid text/words in images (DALL-E struggles with text)
+        - Avoid unnecessary text in images
         - Keep under 400 characters
         
         Example good prompt:
@@ -214,7 +213,7 @@ class ImageGeneratorAgent:
         """)
     
     def optimize_prompt(self, user_request: str, context: str = "") -> str:
-        """Optimize user prompt for DALL-E 3"""
+        """Optimize user prompt for OpenAI image generation"""
         try:
             chain = self.prompt_optimizer | self.llm
             response = chain.invoke({
@@ -235,37 +234,7 @@ class ImageGeneratorAgent:
             return user_request[:400]
     
     def generate_image(self, prompt: str, **kwargs) -> Dict[str, str]:
-        """Generate image using DALL-E 3"""
-        # try:
-        #     response = self.client.images.generate(
-        #         model="dall-e-3",
-        #         prompt=prompt,
-        #         size=size,
-        #         quality=quality,
-        #         n=1
-        #     )
-
-        #     image_data = response.data[0]
-        #     image_url = getattr(image_data, "url", None)
-        #     if not image_url:
-        #         b64_json = getattr(image_data, "b64_json", "")
-        #         if b64_json:
-        #             image_url = f"data:image/png;base64,{b64_json}"
-            
-        #     return {
-        #         "url": image_url or "",
-        #         "revised_prompt": getattr(image_data, "revised_prompt", prompt),
-        #         "status": "success"
-        #     }
-            
-        # except Exception as e:
-        #     print(f"Error generating image: {e}")
-        #     return {
-        #         "url": "",
-        #         "revised_prompt": prompt,
-        #         "status": "error",
-        #         "error": str(e)
-        #     }
+        """Generate image using OpenAI's Images API."""
         return self.generator.generate(prompt, **kwargs)
     
     def create_image(self, user_request: str, context: str = "",

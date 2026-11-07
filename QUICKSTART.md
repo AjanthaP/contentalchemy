@@ -62,7 +62,7 @@ The app will open in your browser at `http://localhost:8501`
 1. **Deep Research** - Comprehensive web research with sources
 2. **SEO Blog Post** - 1000-2000 word optimized articles
 3. **LinkedIn Post** - Professional social media content
-4. **AI Image** - DALL-E 3 generated images
+4. **AI Image** - OpenAI GPT Image generated images
 5. **Content Strategy** - Strategic content planning
 
 ### Workflow:

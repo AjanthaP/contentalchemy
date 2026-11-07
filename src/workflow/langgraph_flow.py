@@ -214,7 +214,8 @@ def create_content_workflow():
             provider=provider,
             llm=llm,
             openai_api_key=settings.openai_api_key,
-            hf_api_key=settings.hf_api_key
+            hf_api_key=settings.hf_api_key,
+            openai_image_model=settings.dalle_model
         )
         
         result = agent(state)

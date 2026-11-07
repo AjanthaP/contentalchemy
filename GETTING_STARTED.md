@@ -193,7 +193,7 @@ topic = "AI Marketing Trends"
 
 ### 5. Image Generator Agent
 ```python
-# Creates images with DALL-E 3
+# Creates images with OpenAI GPT Image
 user_request = "Modern office workspace"
 → Optimizes prompt
 → Generates image

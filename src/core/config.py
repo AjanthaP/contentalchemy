@@ -33,7 +33,7 @@ class Settings(BaseSettings):
     temperature: float = 0.7
     
     # Image Generation
-    dalle_model: str = "dall-e-3"
+    dalle_model: str = "gpt-image-2.5-flare"
     dalle_size: str = "1024x1024"
     dalle_quality: str = "standard"
     

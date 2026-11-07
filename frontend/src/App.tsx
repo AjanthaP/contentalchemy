@@ -615,7 +615,7 @@ function App() {
                         }))
                       }
                     >
-                      <option value="dalle3">DALL·E 3</option>
+                      <option value="dalle3">OpenAI GPT Image</option>
                       <option value="stable-diffusion">Stable Diffusion</option>
                     </select>
                   </label>

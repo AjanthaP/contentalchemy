@@ -12,7 +12,7 @@ ContentAlchemy is a production-ready multi-agent system that generates research 
 - 🔄 **LangGraph Workflow** orchestration
 - 📝 **Multi-Format Content** generation (Blog, LinkedIn, Research, Images)
 - 🔍 **SEO Optimization** engine
-- 🎨 **DALL-E 3 Integration** for image generation
+- 🎨 **OpenAI GPT Image Integration** for image generation
 - 🌐 **Web Research** with SERP API
 - 💻 **Streamlit Web Interface**
 - 🧠 **Conversation Memory** system
@@ -22,7 +22,7 @@ ContentAlchemy is a production-ready multi-agent system that generates research 
 - **LLM**: OpenAI GPT-4
 - **Framework**: LangChain + LangGraph
 - **Research**: SERP API
-- **Images**: DALL-E 3
+- **Images**: OpenAI GPT Image
 - **Python**: 3.10+
 
 ## Project Structure
@@ -119,7 +119,7 @@ Creates search-optimized long-form content (1000-2000 words) with proper structu
 Generates engaging professional social media content optimized for LinkedIn.
 
 ### 5. Image Generator Agent
-Produces custom visuals using DALL-E 3 with automatic prompt optimization.
+Produces custom visuals using OpenAI GPT Image with automatic prompt optimization.
 
 ### 6. Content Strategist Agent
 Formats and organizes research into readable, actionable content.
