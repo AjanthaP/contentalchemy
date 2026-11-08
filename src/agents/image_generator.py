@@ -94,7 +94,11 @@ class OpenAIImageGenerator(ImageGeneratorBase):
 class StableDiffusionGenerator(ImageGeneratorBase):
     """Stable Diffusion via Hugging Face Inference API"""
     
-    def __init__(self, api_key: str, model: str = "black-forest-labs/FLUX.1-schnell"):
+    def __init__(
+        self,
+        api_key: str,
+        model: str = "stabilityai/stable-diffusion-3-medium-diffusers",
+    ):
         self.api_key = api_key
         self.model = model
         self.endpoint = f"https://router.huggingface.co/hf-inference/models/{model}"
@@ -145,6 +149,20 @@ class StableDiffusionGenerator(ImageGeneratorBase):
                 "revised_prompt": prompt,
                 "model": self.model,
                 "cost": self.get_cost_per_image()
+            }
+        except requests.HTTPError as e:
+            response = e.response
+            if response is None:
+                error = str(e)
+            else:
+                detail = response.text.strip()
+                error = f"Hugging Face image API returned HTTP {response.status_code}"
+                if detail:
+                    error = f"{error}: {detail}"
+            return {
+                "success": False,
+                "error": error,
+                "model": self.model
             }
         except Exception as e:
             return {
