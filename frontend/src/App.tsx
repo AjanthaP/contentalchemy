@@ -219,13 +219,11 @@ function App() {
     // Optionally fetch LinkedIn profile if token is present
     useEffect(() => {
       if (linkedinToken) {
-        console.log("LinkedIn token used for profile fetch:", linkedinToken); // Add this line
         fetch("/api/linkedin/profile", {
           headers: { Authorization: `Bearer ${linkedinToken}` },
         })
           .then((res) => res.ok ? res.json() : null)
           .then((data) => {
-            console.log("Fetched LinkedIn profile data:", data); // Add this line
             if (data && data.profile) setLinkedinProfile(data.profile);
           })
           .catch(() => {

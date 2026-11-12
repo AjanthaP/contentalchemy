@@ -1,5 +1,5 @@
 from pydantic_settings import BaseSettings
-from typing import Optional, List
+from typing import Optional
 from enum import Enum
 
 class ContentType(str, Enum):
@@ -26,7 +26,7 @@ class Settings(BaseSettings):
     app_name: str = "ContentAlchemy"
     debug: bool = False
     log_level: str = "INFO"
-    allowed_origins: List[str] = ["*"]
+    allowed_origins: Optional[str] = None  # comma-separated; parsed in src/api/app.py
     
     # LLM Settings
     max_tokens: int = 4000
@@ -64,6 +64,16 @@ class Settings(BaseSettings):
     
     # Frontend Base URL
     frontend_base_url: Optional[str] = "http://localhost:5173"
+
+    # Rate limiting (slowapi / "limits" syntax, e.g. "5/minute;50/day")
+    rate_limit_enabled: bool = True
+    rate_limit_default: str = "120/minute"          # every endpoint, per client IP
+    rate_limit_generate: str = "5/minute;50/day"    # /api/generate, per client IP
+    rate_limit_generate_global: str = "500/day"     # /api/generate, all callers combined
+    # "memory://" is per instance; use e.g. "redis://host:6379/1" to share counts across instances
+    rate_limit_storage_uri: str = "memory://"
+    # Number of proxies that append to X-Forwarded-For (1 = Cloud Run directly)
+    trusted_proxy_hops: int = 1
     class Config:
         env_file = ".env"
         case_sensitive = False

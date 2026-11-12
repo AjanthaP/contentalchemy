@@ -1,24 +1,30 @@
 
 """FastAPI application exposing content workflows."""
-from __future__ import annotations
-from fastapi import Depends, FastAPI, HTTPException
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI, HTTPException, Request
 from src.integrations.linkedin_oauth import router as linkedin_router
 from fastapi.middleware.cors import CORSMiddleware
+from slowapi.errors import RateLimitExceeded
+from slowapi.middleware import SlowAPIMiddleware
 
 from src.api import schemas
 from src.api.dependencies import get_conversation_manager, get_profile_manager
+from src.api.rate_limit import global_key, limiter, rate_limit_exceeded_handler
 from src.core.config import settings
 from src.optimization.content_validator import ContentValidator
 from src.workflow.langgraph_flow import generate_content as run_workflow
-import os
 
 
 app = FastAPI(title="ContentAlchemAI", version=settings.app_version)
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, rate_limit_exceeded_handler)
 app.include_router(linkedin_router, prefix="/api")
 
-allowed_origins = os.getenv("ALLOWED_ORIGINS", "http://localhost:5173,http://127.0.0.1:5173,https://contentalchemy.vercel.app")
+allowed_origins = settings.allowed_origins or "http://localhost:5173,http://127.0.0.1:5173,https://contentalchemy.vercel.app"
 allowed_origins_list = [origin.strip() for origin in allowed_origins.split(",")]
+
+# Applies the default per-IP limit to every route; added before CORS so that
+# CORS stays the outermost layer and 429 responses still carry CORS headers.
+app.add_middleware(SlowAPIMiddleware)
 
 app.add_middleware(
     CORSMiddleware,
@@ -30,6 +36,7 @@ app.add_middleware(
 
 
 @app.get("/health", response_model=schemas.HealthResponse)
+@limiter.exempt
 async def health() -> schemas.HealthResponse:
     return schemas.HealthResponse()
 
@@ -53,7 +60,9 @@ async def update_profile(
 
 
 @app.post("/api/generate", response_model=schemas.GenerateResponse)
-async def generate_content(payload: schemas.GenerateRequest):
+@limiter.limit(settings.rate_limit_generate)
+@limiter.limit(settings.rate_limit_generate_global, key_func=global_key)
+async def generate_content(request: Request, payload: schemas.GenerateRequest):
     session_id, conversation_manager = get_conversation_manager(payload.session_id)
 
     metadata = {
